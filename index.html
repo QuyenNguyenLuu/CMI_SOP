@@ -32,6 +32,7 @@
   .gate-title{text-align:center;font-family:var(--serif);font-size:18px;font-weight:600;color:var(--ink-strong);margin-bottom:4px;letter-spacing:.3px}
   .gate-sub{text-align:center;font-size:12px;color:var(--muted);margin-bottom:24px}
   .gate-hint{margin-top:16px;font-size:11.5px;color:var(--muted);text-align:center;line-height:1.5}
+  .gate-hint a{color:var(--accent);font-weight:600;text-decoration:none}
 
   aside{width:248px;background:var(--side);position:fixed;height:100vh;display:flex;flex-direction:column;overflow:hidden;z-index:20}
   .brand{padding:18px;border-bottom:1px solid var(--side-line);display:flex;align-items:center;gap:11px}
@@ -205,14 +206,13 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400);}
 function initials(n){return (n||'?').trim().split(/\s+/).slice(-2).map(w=>w[0]).join('').toUpperCase();}
 function fmtDate(ts){if(!ts)return'';return new Date(ts).toLocaleDateString('en-GB');}
-function isAdmin(){return CURRENT&&CURRENT.role==='admin';}
 function imgSrc(v){return v||'';}
 function modalOpen(){return $('overlay').classList.contains('show');}
 
 /* ---- ImgBB image hosting ----
    Paste your ImgBB API key below. Get one free at https://api.imgbb.com/
    If left blank, the app will prompt for it and remember it in this browser. */
-let IMGBB_KEY = "";
+let IMGBB_KEY = "d36df5b1ecefd786cdd5100331ca240b";
 function getImgbbKey(){
   if(IMGBB_KEY) return IMGBB_KEY;
   let k=null; try{ k=localStorage.getItem('imgbb_key'); }catch(e){}
@@ -256,6 +256,38 @@ async function uploadToImgbb(file){
 }
 async function hashPw(pw){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pw));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 
+/* ---- permissions ----
+   Each user has a perms object. Admin implicitly has all permissions. */
+const PERM_DEFS=[
+  {key:'view',   label:'View procedures'},
+  {key:'create', label:'Create new procedures'},
+  {key:'editOwn',label:'Edit own procedures'},
+  {key:'editAll',label:'Edit all procedures'},
+  {key:'delete', label:'Delete procedures'}
+];
+function defaultPerms(){return {view:true, create:false, editOwn:false, editAll:false, delete:false};}
+function isAdmin(u){u=u||CURRENT;return !!(u&&u.role==='admin');}
+function can(perm,u){
+  u=u||CURRENT; if(!u) return false;
+  if(u.role==='admin') return true;
+  const p=u.perms||{};
+  return !!p[perm];
+}
+function canEditSop(sop,u){
+  u=u||CURRENT; if(!u) return false;
+  if(u.role==='admin') return true;
+  if(can('editAll',u)) return true;
+  if(can('editOwn',u) && sop.ownerId===u.id) return true;
+  return false;
+}
+function roleLabel(u){
+  if(!u) return '';
+  if(u.role==='admin') return 'Administrator';
+  const granted=PERM_DEFS.filter(d=>d.key!=='view'&&can(d.key,u));
+  if(granted.length) return 'Editor';
+  return 'Viewer';
+}
+
 /* ---- Firebase bridge ---- */
 function fbReady(){return new Promise(res=>{if(window.FB)return res();window.addEventListener('fb-ready',()=>res(),{once:true});});}
 async function saveAll(){
@@ -278,11 +310,13 @@ async function ensureSeed(){
   let changed=false;
   if(!DB.users.length){
     DB.users=[
-      {id:uid(),name:'Administrator',username:'admin',role:'admin',pw:await hashPw('admin'),createdAt:Date.now()},
-      {id:uid(),name:'Viewer',username:'viewer',role:'staff',pw:await hashPw('viewer'),createdAt:Date.now()}
+      {id:uid(),name:'Administrator',username:'admin',role:'admin',pw:await hashPw('admin'),perms:{view:true,create:true,editOwn:true,editAll:true,delete:true},createdAt:Date.now()},
+      {id:uid(),name:'Viewer',username:'viewer',role:'staff',pw:await hashPw('viewer'),perms:defaultPerms(),createdAt:Date.now()}
     ];
     changed=true;
   }
+  // ensure every user has a perms object (migration for older data)
+  DB.users.forEach(u=>{ if(!u.perms){ u.perms = u.role==='admin' ? {view:true,create:true,editOwn:true,editAll:true,delete:true} : defaultPerms(); changed=true; } });
   if(!DB._seededSopEn){
     DB.sops=DB.sops.filter(s=>s.title!=='Set up User tự được approve PR sau khi tạo');
     if(!DB.sops.some(s=>s.title===SEED_SOP.title)){
@@ -312,7 +346,9 @@ function findSop(id){return DB.sops.find(x=>x.id===id);}
 function findUser(id){return DB.users.find(x=>x.id===id);}
 
 /* ================= AUTH ================= */
+let gateMode='login';
 function renderGate(){
+  if(gateMode==='register'){ renderRegister(); return; }
   $('root').innerHTML=`
   <div class="gate">
     <div class="gate-card">
@@ -322,9 +358,44 @@ function renderGate(){
       <div class="field"><label>Username</label><input id="lg-user" placeholder="Username" onkeydown="if(event.key==='Enter')document.getElementById('lg-pass').focus()"></div>
       <div class="field" style="margin-bottom:0"><label>Password</label><input id="lg-pass" type="password" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:22px" onclick="doLogin()">Sign In</button>
+      <div class="gate-hint">No account yet? <a href="#" onclick="switchGate('register');return false;">Register now</a></div>
     </div>
   </div>`;
   setTimeout(()=>$('lg-user')?.focus(),50);
+}
+function renderRegister(){
+  $('root').innerHTML=`
+  <div class="gate">
+    <div class="gate-card">
+      <div class="gate-logo"><div class="mk">📚</div></div>
+      <div class="gate-title">Create an account</div>
+      <div class="gate-sub">New accounts get view-only access until an administrator grants more.</div>
+      <div class="field"><label>Full name</label><input id="rg-name" placeholder="Your name"></div>
+      <div class="field"><label>Username</label><input id="rg-user" placeholder="Username"></div>
+      <div class="field"><label>Password</label><input id="rg-pass" type="password" placeholder="At least 4 characters"></div>
+      <div class="field" style="margin-bottom:0"><label>Confirm password</label><input id="rg-pass2" type="password" placeholder="••••••" onkeydown="if(event.key==='Enter')doRegister()"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:22px" onclick="doRegister()">Create account</button>
+      <div class="gate-hint">Already have an account? <a href="#" onclick="switchGate('login');return false;">Sign in</a></div>
+    </div>
+  </div>`;
+  setTimeout(()=>$('rg-name')?.focus(),50);
+}
+function switchGate(m){gateMode=m;renderGate();}
+async function doRegister(){
+  const name=$('rg-name').value.trim();
+  const username=$('rg-user').value.trim().toLowerCase();
+  const pass=$('rg-pass').value;
+  const pass2=$('rg-pass2').value;
+  if(!name||!username){toast('Enter your name and a username');return;}
+  if(pass.length<4){toast('Password is too short');return;}
+  if(pass!==pass2){toast('Passwords do not match');return;}
+  if(DB.users.some(x=>x.username.toLowerCase()===username)){toast('Username already exists');return;}
+  const nu={id:uid(),name,username,role:'staff',pw:await hashPw(pass),perms:defaultPerms(),createdAt:Date.now()};
+  DB.users.push(nu);
+  await saveAll();
+  CURRENT=nu; gateMode='login'; TAB='library'; activeId=null; mode='view';
+  toast('Account created — welcome!');
+  renderApp();
 }
 async function doLogin(){
   const u=$('lg-user').value.trim().toLowerCase();
@@ -334,7 +405,7 @@ async function doLogin(){
   if(f.pw!==await hashPw(p)){toast('Incorrect password');return;}
   CURRENT=f; TAB='library'; activeId=null; mode='view'; renderApp();
 }
-function logout(){CURRENT=null;renderGate();}
+function logout(){CURRENT=null;gateMode='login';renderGate();}
 
 /* ================= SHELL ================= */
 function renderApp(){
@@ -344,7 +415,7 @@ function renderApp(){
   $('root').innerHTML=`
   <aside id="aside">
     <div class="brand"><div class="mk">📚</div><div><div class="bn">SOP Library</div><div class="bs">Internal Procedures</div></div></div>
-    <div class="profile"><div class="avatar">${initials(CURRENT.name)}</div><div><div class="pn">${esc(CURRENT.name)}</div><div class="pw">${isAdmin()?'Administrator':'Viewer'}</div></div></div>
+    <div class="profile"><div class="avatar">${initials(CURRENT.name)}</div><div><div class="pn">${esc(CURRENT.name)}</div><div class="pw">${roleLabel(CURRENT)}</div></div></div>
     <nav>
       <div class="nav-sec">Menu</div>
       ${tabs.map(t=>`<button class="nav-btn ${TAB===t.id?'on':''}" onclick="go('${t.id}')"><span>${t.ic}</span><span>${t.label}</span><span class="nav-count">${t.count}</span></button>`).join('')}
@@ -382,8 +453,8 @@ function renderLibrary(){
   $('crumb').textContent=TAB_TITLE.library;
   $('wrap').innerHTML=`
     <div class="pagehead">
-      <div><h2>Procedure Library</h2><div class="sub">${DB.sops.length} document(s) · ${isAdmin()?'You have management access':'Read-only mode'}</div></div>
-      ${isAdmin()?`<button class="btn btn-primary" onclick="newSop()">＋ New Procedure</button>`:''}
+      <div><h2>Procedure Library</h2><div class="sub">${DB.sops.length} document(s) · ${roleLabel(CURRENT)}${isAdmin()?' — full access':''}</div></div>
+      ${can('create')?`<button class="btn btn-primary" onclick="newSop()">＋ New Procedure</button>`:''}
     </div>
     <div class="toolbar">
       <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
@@ -394,16 +465,17 @@ function renderLibrary(){
       </div>
     </div>
     ${items.length?`<div class="grid">${items.map(cardHtml).join('')}</div>`
-      :`<div class="empty"><div class="ico">📭</div><p>${DB.sops.length?'No procedures match your filter.':'No procedures yet.'}</p>${isAdmin()&&!DB.sops.length?'<button class="btn btn-primary" onclick="newSop()" style="margin-top:10px">Create your first procedure</button>':''}</div>`}
+      :`<div class="empty"><div class="ico">📭</div><p>${DB.sops.length?'No procedures match your filter.':'No procedures yet.'}</p>${can('create')&&!DB.sops.length?'<button class="btn btn-primary" onclick="newSop()" style="margin-top:10px">Create your first procedure</button>':''}</div>`}
   `;
   const s=$('search');
   s.oninput=e=>{searchQ=e.target.value;const pos=e.target.selectionStart;renderLibrary();const ns=$('search');ns.focus();ns.setSelectionRange(pos,pos);};
 }
 function cardHtml(d){
+  const owner=d.ownerName?esc(d.ownerName):'';
   return `<div class="card" onclick="openSop('${d.id}')">
     <div class="ct">${esc(d.title||'(Untitled)')}</div>
     <div class="cs">${esc(d.summary||'No description')}</div>
-    <div class="cf"><span class="tag">${esc(d.category||'Other')}</span><span>${d.updatedAt?fmtDate(d.updatedAt):''}</span></div>
+    <div class="cf"><span class="tag">${esc(d.category||'Other')}</span><span>${owner?owner+' · ':''}${d.updatedAt?fmtDate(d.updatedAt):''}</span></div>
   </div>`;
 }
 function setCat(c){activeCat=c;renderLibrary();}
@@ -424,10 +496,11 @@ function renderViewer(){
         <div class="doc-meta">
           <span class="tag">${esc(d.category||'Other')}</span>
           ${d.version?`<span>Version ${esc(d.version)}</span>`:''}
+          ${d.ownerName?`<span>By ${esc(d.ownerName)}</span>`:''}
           ${d.updatedAt?`<span>Updated ${fmtDate(d.updatedAt)}</span>`:''}
         </div>
       </div>
-      ${isAdmin()?`<div style="display:flex;gap:8px"><button class="btn-sm" onclick="editSop()">✎ Edit</button><button class="btn-sm danger" onclick="delSop('${d.id}')">🗑 Delete</button></div>`:''}
+      ${(canEditSop(d)||can('delete'))?`<div style="display:flex;gap:8px">${canEditSop(d)?`<button class="btn-sm" onclick="editSop()">✎ Edit</button>`:''}${can('delete')?`<button class="btn-sm danger" onclick="delSop('${d.id}')">🗑 Delete</button>`:''}</div>`:''}
     </div>
     ${d.summary?`<div class="prose"><p>${nl2br(d.summary)}</p></div>`:''}
     ${info.length?`<div class="info-grid">${info.map(r=>`<div class="k">${esc(r.k)}</div><div class="v">${nl2br(r.v)}</div>`).join('')}</div>`:''}
@@ -439,6 +512,7 @@ function renderViewer(){
   `;
 }
 async function delSop(id){
+  if(!can('delete')){toast('Permission denied');return;}
   if(!confirm('Delete this procedure? This action cannot be undone.'))return;
   DB.sops=DB.sops.filter(s=>s.id!==id);
   activeId=null;mode='view';
@@ -447,8 +521,8 @@ async function delSop(id){
 
 /* ================= EDITOR ================= */
 function blankSop(){return{title:'',category:CATEGORIES[0],version:'1.0',summary:'',info:[{k:'Purpose',v:''},{k:'Scope',v:''}],steps:[{title:'',text:'',img:''}],notes:''};}
-function newSop(){if(!isAdmin())return;activeId=null;draft=blankSop();mode='edit';renderLibrary();}
-function editSop(){draft=JSON.parse(JSON.stringify(findSop(activeId)));mode='edit';renderLibrary();}
+function newSop(){if(!can('create')){toast('Permission denied');return;}activeId=null;draft=blankSop();mode='edit';renderLibrary();}
+function editSop(){const d=findSop(activeId);if(!canEditSop(d)){toast('Permission denied');return;}draft=JSON.parse(JSON.stringify(d));mode='edit';renderLibrary();}
 function cancelEdit(){draft=null;mode='view';renderLibrary();}
 
 function renderEditor(){
@@ -510,7 +584,13 @@ function renderImgCell(i){
   }
 }
 async function saveDraft(){
-  if(!isAdmin()){toast('Permission denied');return;}
+  const editingExisting=!!activeId;
+  if(editingExisting){
+    const existing=findSop(activeId);
+    if(!canEditSop(existing)){toast('Permission denied');return;}
+  }else{
+    if(!can('create')){toast('Permission denied');return;}
+  }
   draft.title=($('f-title').value||'').trim();
   if(!draft.title){toast('Please enter a title');return;}
   draft.info=draft.info.filter(r=>r.k||r.v);
@@ -520,7 +600,9 @@ async function saveDraft(){
     const idx=DB.sops.findIndex(s=>s.id===activeId);
     if(idx>=0) DB.sops[idx]={...DB.sops[idx],...draft};
   }else{
-    draft.id=uid(); draft.createdAt=Date.now(); DB.sops.push(draft); activeId=draft.id;
+    draft.id=uid(); draft.createdAt=Date.now();
+    draft.ownerId=CURRENT.id; draft.ownerName=CURRENT.name;
+    DB.sops.push(draft); activeId=draft.id;
   }
   const big=JSON.stringify(DB).length;
   if(big>900000){ toast('Warning: data is getting large ('+Math.round(big/1024)+' KB). Consider fewer/smaller images.'); }
@@ -535,14 +617,15 @@ function renderUsers(){
   $('wrap').innerHTML=`
     <div class="pagehead"><div><h2>User Management</h2><div class="sub">${DB.users.length} account(s)</div></div>
       <button class="btn btn-primary" onclick="userModal()">＋ Add User</button></div>
-    <table><thead><tr><th>Full Name</th><th>Username</th><th>Role</th><th style="text-align:right">Actions</th></tr></thead>
+    <table><thead><tr><th>Full Name</th><th>Username</th><th>Role</th><th>Permissions</th><th style="text-align:right">Actions</th></tr></thead>
     <tbody>${DB.users.map(u=>`<tr>
       <td><b style="color:var(--ink-strong)">${esc(u.name)}</b>${u.id===CURRENT.id?' <span style="color:var(--muted);font-size:12px">(you)</span>':''}</td>
       <td>${esc(u.username)}</td>
-      <td><span class="tag ${u.role==='admin'?'tag-admin':'tag-staff'}">${u.role==='admin'?'Administrator':'Viewer'}</span></td>
+      <td><span class="tag ${u.role==='admin'?'tag-admin':'tag-staff'}">${roleLabel(u)}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${u.role==='admin'?'All permissions':(PERM_DEFS.filter(d=>can(d.key,u)).map(d=>d.label.replace(' procedures','').replace(' new','')).join(', ')||'None')}</td>
       <td style="text-align:right"><button class="btn-sm" onclick="userModal('${u.id}')">Edit</button> <button class="btn-sm danger" onclick="delUser('${u.id}')">Delete</button></td>
     </tr>`).join('')}</tbody></table>
-    <div class="sub" style="margin-top:14px">The <b>Viewer</b> role can only view procedures. The <b>Administrator</b> role can create, edit and delete procedures and manage users.</div>
+    <div class="sub" style="margin-top:14px">Grant each user the exact permissions they need. <b>Administrator</b> has all permissions and can manage users. New self-registered accounts start as view-only.</div>
   `;
 }
 function openModal(title,bodyHtml,footHtml){
@@ -552,14 +635,24 @@ function openModal(title,bodyHtml,footHtml){
 }
 function closeModal(){$('overlay').classList.remove('show');$('overlay').innerHTML='';}
 function userModal(id){
-  const u=id?findUser(id):{name:'',username:'',role:'staff'};
+  const u=id?findUser(id):{name:'',username:'',role:'staff',perms:defaultPerms()};
+  const perms=u.perms||defaultPerms();
+  const permRows=PERM_DEFS.map(d=>`<label style="display:flex;align-items:center;gap:9px;padding:7px 0;font-size:14px;font-weight:400;cursor:pointer">
+    <input type="checkbox" id="perm-${d.key}" ${perms[d.key]?'checked':''} style="width:16px;height:16px;accent-color:var(--accent)"> ${d.label}</label>`).join('');
   openModal(id?'Edit User':'Add User',`
     <div class="field"><label>Full Name *</label><input id="u-name" value="${esc(u.name)}"></div>
     <div class="field"><label>Username *</label><input id="u-username" value="${esc(u.username)}" ${id?'disabled style="opacity:.6"':''}></div>
     <div class="field"><label>Password ${id?'(leave blank to keep current)':'*'}</label><input id="u-pass" type="password" placeholder="${id?'••••••':'Enter password'}"></div>
-    <div class="field" style="margin-bottom:0"><label>Role</label><select id="u-role"><option value="staff" ${u.role==='staff'?'selected':''}>Viewer</option><option value="admin" ${u.role==='admin'?'selected':''}>Administrator</option></select></div>`,
+    <div class="field"><label>Role</label><select id="u-role" onchange="onRoleChange()"><option value="staff" ${u.role==='staff'?'selected':''}>Standard user</option><option value="admin" ${u.role==='admin'?'selected':''}>Administrator (all permissions)</option></select></div>
+    <div class="field" id="perm-box" style="margin-bottom:0;${u.role==='admin'?'opacity:.4;pointer-events:none':''}"><label>Permissions</label>
+      <div style="border:1px solid var(--line);border-radius:6px;padding:6px 14px;background:#fbfaf6">${permRows}</div>
+    </div>`,
     `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveUser('${id||''}')">Save</button>`);
   setTimeout(()=>$('u-name')?.focus(),50);
+}
+function onRoleChange(){
+  const box=$('perm-box'); const isA=$('u-role').value==='admin';
+  box.style.opacity=isA?'.4':'1'; box.style.pointerEvents=isA?'none':'auto';
 }
 async function saveUser(id){
   const name=$('u-name').value.trim();
@@ -568,12 +661,14 @@ async function saveUser(id){
   if(!name||!username){toast('Enter full name and username');return;}
   if(!id&&!pass){toast('Enter a password');return;}
   if(!id&&DB.users.some(x=>x.username.toLowerCase()===username)){toast('Username already exists');return;}
+  const perms={}; PERM_DEFS.forEach(d=>{ perms[d.key]=!!($('perm-'+d.key)&&$('perm-'+d.key).checked); });
+  if(role!=='admin'&&!perms.view) perms.view=true; // everyone can at least view
   if(id){
     const u=findUser(id);
     if(u.role==='admin'&&role!=='admin'&&DB.users.filter(x=>x.role==='admin').length<=1){toast('At least one administrator is required');return;}
-    u.name=name; u.role=role; if(pass)u.pw=await hashPw(pass);
+    u.name=name; u.role=role; u.perms=perms; if(pass)u.pw=await hashPw(pass);
   }else{
-    DB.users.push({id:uid(),name,username,role,pw:await hashPw(pass),createdAt:Date.now()});
+    DB.users.push({id:uid(),name,username,role,perms,pw:await hashPw(pass),createdAt:Date.now()});
   }
   closeModal(); await saveAll(); toast('Saved');
   if(TAB==='users')renderUsers();
@@ -610,6 +705,7 @@ window.backToList=backToList;window.newSop=newSop;window.editSop=editSop;window.
 window.delSop=delSop;window.saveDraft=saveDraft;window.addInfo=addInfo;window.rmInfo=rmInfo;
 window.addStep=addStep;window.rmStep=rmStep;window.userModal=userModal;window.saveUser=saveUser;
 window.delUser=delUser;window.closeModal=closeModal;window.changePw=changePw;window.doChangePw=doChangePw;
+window.switchGate=switchGate;window.doRegister=doRegister;window.onRoleChange=onRoleChange;
 </script>
 </body>
 </html>
