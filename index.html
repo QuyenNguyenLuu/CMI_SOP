@@ -291,8 +291,21 @@ function roleLabel(u){
 /* ---- Firebase bridge ---- */
 function fbReady(){return new Promise(res=>{if(window.FB)return res();window.addEventListener('fb-ready',()=>res(),{once:true});});}
 async function saveAll(){
-  try{ const j=JSON.stringify(DB); _lastSaved=j; await window.FB.saveDoc(j); }
-  catch(e){ console.warn(e); toast('Could not save to the server (check your connection)'); }
+  const j=JSON.stringify(DB);
+  try{
+    await window.FB.saveDoc(j);
+    _lastSaved=j;
+    return true;
+  }catch(e){
+    console.error('Firestore save failed:', e);
+    const code=(e&&e.code)||'';
+    if(/permission-denied|insufficient/i.test(code+' '+(e&&e.message||''))){
+      alert('⚠ Cannot save to the database.\n\nFirestore Security Rules are blocking writes for this app.\n\nOpen Firebase Console → Firestore Database → Rules and allow read/write for document app/sop_data (see the deployment guide, Part F).');
+    }else{
+      toast('Could not save to the server: '+(e&&e.message||'unknown error'));
+    }
+    return false;
+  }
 }
 
 (async function init(){
@@ -696,8 +709,10 @@ async function doChangePw(){
   if(await hashPw(o)!==CURRENT.pw){toast('Current password is incorrect');return;}
   if(n.length<4){toast('New password is too short');return;}
   if(n!==n2){toast('Passwords do not match');return;}
-  const u=findUser(CURRENT.id); u.pw=await hashPw(n); CURRENT.pw=u.pw;
-  closeModal(); await saveAll(); toast('Password changed');
+  const u=findUser(CURRENT.id); const newHash=await hashPw(n); u.pw=newHash; CURRENT.pw=newHash;
+  const ok=await saveAll();
+  if(ok){ closeModal(); toast('Password changed'); }
+  else { toast('Password NOT saved — see the error message'); }
 }
 
 window.doLogin=doLogin;window.logout=logout;window.go=go;window.setCat=setCat;window.openSop=openSop;
