@@ -362,10 +362,11 @@ function renderGate(){
       <div class="gate-logo"><div class="mk">📚</div></div>
       <div class="gate-title">SOP & Procedure Library</div>
       <div class="gate-sub">Sign in to continue</div>
-      <div class="field"><label>Username</label><input id="lg-user" placeholder="Username" onkeydown="if(event.key==='Enter')document.getElementById('lg-pass').focus()"></div>
-      <div class="field" style="margin-bottom:0"><label>Password</label><input id="lg-pass" type="password" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="field"><label>Username</label><input id="lg-user" placeholder="Username" value="viewer" onkeydown="if(event.key==='Enter')document.getElementById('lg-pass').focus()"></div>
+      <div class="field" style="margin-bottom:0"><label>Password</label><input id="lg-pass" type="password" placeholder="••••••" value="viewer" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:22px" onclick="doLogin()">Sign In</button>
-      <div class="gate-hint">No account yet? <a href="#" onclick="switchGate('register');return false;">Register now</a></div>
+      <div class="gate-hint">Guests can sign in with the pre-filled <b>viewer</b> account for read-only access.</div>
+      <div class="gate-hint" style="margin-top:8px">No account yet? <a href="#" onclick="switchGate('register');return false;">Register now</a></div>
     </div>
   </div>`;
   setTimeout(()=>$('lg-user')?.focus(),50);
