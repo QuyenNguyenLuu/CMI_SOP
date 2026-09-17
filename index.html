@@ -292,8 +292,21 @@ function roleLabel(u){
 /* ---- Firebase bridge ---- */
 function fbReady(){return new Promise(res=>{if(window.FB)return res();window.addEventListener('fb-ready',()=>res(),{once:true});});}
 async function saveAll(){
-  try{ const j=JSON.stringify(DB); _lastSaved=j; await window.FB.saveDoc(j); }
-  catch(e){ console.warn(e); toast('Could not save to the server (check your connection)'); }
+  const j=JSON.stringify(DB);
+  try{
+    await window.FB.saveDoc(j);
+    _lastSaved=j;
+    return true;
+  }catch(e){
+    console.error('Firestore save failed:', e);
+    const info=((e&&e.code)||'')+' '+((e&&e.message)||'');
+    if(/permission-denied|insufficient/i.test(info)){
+      alert('⚠ Cannot save to the database.\n\nFirestore Security Rules are blocking writes for this app, so your changes are NOT being saved and other devices will not see them.\n\nFix: Firebase Console → Firestore Database → Rules → allow read, write for this project, then Publish.');
+    }else{
+      toast('Could not save to the server: '+((e&&e.message)||'unknown error'));
+    }
+    return false;
+  }
 }
 
 (async function init(){
