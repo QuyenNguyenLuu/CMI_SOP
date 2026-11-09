@@ -453,7 +453,7 @@ function renderSopList(){
   $('wrap').innerHTML=`
     <div class="pagehead"><div><h2>Procedure Editor</h2>
       <div class="sub">${canAny?`You can edit ${mine.length} of ${all.length} procedure(s).`:'You have view-only access. Ask an administrator for edit permission.'}</div></div>
-      ${can('create')?`<button class="btn btn-primary" onclick="newSop()">＋ New Procedure</button>`:''}</div>
+      ${can('create')?`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost" onclick="importPick()">⬆ Import JSON</button><button class="btn btn-primary" onclick="newSop()">＋ New Procedure</button></div>`:''}</div>
     <div class="kpis">
       <div class="kpi"><div class="n">${cnt('approved')}</div><div class="l">Approved</div></div>
       <div class="kpi"><div class="n">${cnt('review')}</div><div class="l">In review</div></div>
@@ -917,7 +917,57 @@ function exportJson(){
   a.download='sop-backup-'+todayISO()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
 
-Object.assign(window,{$,doLogin,logout,go,newSop,editSop,cancelEdit,saveDraft,delSop,togglePreview,restoreLocal,discardLocal,bump,autoReview,
+/* ================= IMPORT (JSON) =================
+   Accepts {sops:[...]} or [...]. Inline data: images are uploaded to ImgBB
+   from this browser before saving, so the shared document stays small. */
+let IMP=null;
+async function importPick(){
+  if(!can('create')){toast('Permission denied');return;}
+  const f=await pickFile('.json,application/json');if(!f)return;
+  let data;try{data=JSON.parse(await f.text());}catch(e){toast('Not a valid JSON file');return;}
+  const list=(Array.isArray(data)?data:(data.sops||[])).filter(x=>x&&x.title);
+  if(!list.length){toast('No procedures found in file');return;}
+  IMP={list,source:data.source||f.name};
+  const titles=new Set(DB.sops.map(x=>(x.title||'').trim().toLowerCase()));
+  openModal('Import procedures',`
+    <p class="hint" style="margin:0 0 12px;font-size:13px;color:var(--muted)">From <b>${esc(IMP.source)}</b>. Images inside the file are uploaded automatically.</p>
+    ${list.map((d,i)=>{const dup=titles.has(d.title.trim().toLowerCase());const n=(d.steps||[]).filter(s=>s.img).length;
+      return `<label class="check" style="padding:7px 0;border-bottom:1px solid var(--line-soft);align-items:flex-start"><input type="checkbox" class="imp-ck" data-i="${i}" ${dup?'':'checked'}>
+      <span><b style="color:var(--ink-strong)">${esc(d.title)}</b><br><span style="font-size:12px;color:var(--muted)">${(d.steps||[]).length} step(s) · ${n} image(s)${dup?' · <span class="due">same title already exists</span>':''}</span></span></label>`;}).join('')}
+    <div class="field" style="margin:16px 0 0"><label>Status for imported procedures</label>
+      <select id="imp-st"><option value="">Keep value from file</option>${STATUSES.map(x=>`<option value="${x.k}">${x.label}</option>`).join('')}</select></div>
+    <div id="imp-prog" style="margin-top:12px;font-size:13px;color:var(--accent-dark)"></div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="imp-go" onclick="runImport()">Import</button>`);
+}
+async function dataUrlToBlob(u){return await (await fetch(u)).blob();}
+async function runImport(){
+  const pick=[...document.querySelectorAll('.imp-ck')].filter(x=>x.checked).map(x=>clone(IMP.list[+x.dataset.i]));
+  if(!pick.length){toast('Select at least one procedure');return;}
+  const st=$('imp-st').value,prog=$('imp-prog'),btn=$('imp-go');btn.disabled=true;btn.style.opacity=.5;
+  const total=pick.reduce((a,d)=>a+(d.steps||[]).filter(s=>/^data:image\//.test(s.img||'')).length,0);let done=0;
+  try{
+    for(const d of pick){for(const s of (d.steps||[])){
+      if(/^data:image\//.test(s.img||'')){prog.textContent=`Uploading images… ${done+1}/${total}`;s.img=await uploadToImgbb(await dataUrlToBlob(s.img));done++;}
+    }}
+  }catch(e){prog.textContent='';btn.disabled=false;btn.style.opacity=1;toast('Image upload failed: '+e.message+' — nothing was saved');return;}
+  prog.textContent='Saving…';
+  const me=CURRENT,now=Date.now();
+  const ok=await commit(db=>{pick.forEach((d,k)=>{
+    const sop={title:'',category:cats()[0],dept:'',version:'1.0',status:'draft',effectiveDate:'',reviewDate:'',tags:[],summary:'',info:[],steps:[],notes:'',...d};
+    if(st)sop.status=st;
+    Object.assign(sop,{id:uid()+k,createdAt:now,updatedAt:now,ownerId:me.id,ownerName:me.name,updatedById:me.id,updatedByName:me.name});
+    sop.history=[{at:now,by:me.id,byName:me.name,version:sop.version,status:sop.status,note:'Imported from '+IMP.source,snap:snapshot(sop)}];
+    db.sops.push(sop);});});
+  if(!ok){btn.disabled=false;btn.style.opacity=1;prog.textContent='';return;}
+  closeModal();toast(pick.length+' procedure(s) imported');renderSopList();
+}
+function openModal(title,body,foot){
+  $('overlay').innerHTML=`<div class="modal"><div class="modal-head"><h3>${title}</h3><button class="x" onclick="closeModal()">×</button></div><div class="modal-body">${body}</div><div class="modal-foot">${foot}</div></div>`;
+  $('overlay').classList.add('show');
+}
+function closeModal(){$('overlay').classList.remove('show');$('overlay').innerHTML='';}
+
+Object.assign(window,{importPick,runImport,closeModal,$,doLogin,logout,go,newSop,editSop,cancelEdit,saveDraft,delSop,togglePreview,restoreLocal,discardLocal,bump,autoReview,
   addInfo,applyTemplate,infoAct,addStep,stepAct,loadHistory,uploadAvatar,clearAvatar,saveProfile,doChangePw,
   saveSettings,uploadLogo,leAct,exportJson,renderApp});
 </script>
