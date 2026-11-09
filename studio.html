@@ -154,6 +154,11 @@
   .menu-toggle{display:none}
 
   /* ===== Studio additions ===== */
+  .langsw{display:inline-flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:#fff;margin-right:6px}
+  .langsw button{background:none;font-size:11.5px;font-weight:700;letter-spacing:.5px;padding:5px 11px;color:var(--muted)}
+  .langsw button.on{background:var(--accent);color:#fff}
+  .gate{position:relative}
+  .gate-lang{position:absolute;top:16px;right:16px}
   .wrap.wide{max-width:1360px}
   .panel{background:#fff;border:1px solid var(--line);border-radius:6px;padding:20px 22px;margin-bottom:18px}
   .panel h3{font-family:var(--serif);font-size:17px;font-weight:600;color:var(--ink-strong);margin:0 0 4px}
@@ -209,6 +214,208 @@
 <div id="root"><div class="loading">Loading…</div></div>
 <div class="overlay" id="overlay"></div>
 <div class="toast" id="toast"></div>
+<script>
+/* ================= I18N (English / Tiếng Việt) =================
+   UI strings are written in English in the code; this layer translates rendered
+   text nodes, placeholders, titles, toasts and dialogs to Vietnamese.
+   Procedure content is never translated (marked translate="no").           */
+const I18N_VI={
+"(Untitled)":"(Chưa có tiêu đề)","(you)":"(bạn)","(no note)":"(không có ghi chú)",
+"Accent colour":"Màu chủ đạo","Actions":"Thao tác","Add User":"Thêm người dùng","Administrator":"Quản trị viên",
+"Administrator (all permissions)":"Quản trị viên (toàn quyền)","Editor":"Biên tập viên","Viewer":"Người xem",
+"All":"Tất cả","All categories":"Tất cả danh mục","All permissions":"Toàn quyền","All statuses":"Tất cả trạng thái",
+"Already have an account?":"Đã có tài khoản?","Applies to everyone using the Library and the Studio.":"Áp dụng cho tất cả người dùng Library và Studio.",
+"Approved":"Đã duyệt","Draft":"Bản nháp","In Review":"Đang xem xét","In review":"Đang xem xét","Obsolete":"Hết hiệu lực",
+"At least 4 characters":"Ít nhất 4 ký tự","At least 4 characters.":"Ít nhất 4 ký tự.",
+"Backup":"Sao lưu","Basics":"Thông tin cơ bản","Branding":"Thương hiệu","Cancel":"Hủy","Categories":"Danh mục","Category":"Danh mục",
+"Change Password":"Đổi mật khẩu","🔑 Change Password":"🔑 Đổi mật khẩu","Change history":"Lịch sử thay đổi","Change password":"Đổi mật khẩu",
+"Confirm":"Xác nhận","Confirm new password":"Xác nhận mật khẩu mới","Confirm password":"Xác nhận mật khẩu",
+"Create account":"Tạo tài khoản","Create an account":"Tạo tài khoản mới","Create new procedures":"Tạo quy trình mới",
+"Current password":"Mật khẩu hiện tại","Customise":"Tùy chỉnh","Default information rows":"Các dòng thông tin mặc định",
+"Default information rows for new procedures, review cycle, and visibility.":"Dòng thông tin mặc định cho quy trình mới, chu kỳ rà soát và quyền hiển thị.",
+"Delete":"Xóa","🗑 Delete":"🗑 Xóa","Delete procedures":"Xóa quy trình","Department":"Phòng ban","Departments":"Phòng ban",
+"Download all procedures and settings as JSON (passwords are excluded).":"Tải toàn bộ quy trình và cài đặt dưới dạng JSON (không kèm mật khẩu).",
+"Drag to reorder":"Kéo để sắp xếp","Drag ⠿ to reorder. Click an image box to upload, or click the step and paste a screenshot (Ctrl+V).":"Kéo ⠿ để sắp xếp. Bấm vào ô ảnh để upload, hoặc bấm vào bước rồi dán ảnh chụp màn hình (Ctrl+V).",
+"Duplicate":"Nhân bản","Edit":"Sửa","✎ Edit":"✎ Sửa","Edit Procedure":"Sửa quy trình","Edit User":"Sửa người dùng",
+"Edit all procedures":"Sửa tất cả quy trình","Edit own procedures":"Sửa quy trình của mình","Effective date":"Ngày hiệu lực",
+"Email":"Email","Enter password":"Nhập mật khẩu","Full Name":"Họ tên","Full Name *":"Họ tên *","Full name":"Họ tên","Full name *":"Họ tên *",
+"Go to":"Đi đến","Grant each user the exact permissions they need.":"Cấp cho mỗi người dùng đúng quyền họ cần.",
+"Guests can sign in with the pre-filled":"Khách có thể đăng nhập bằng tài khoản","account for read-only access.":"được điền sẵn để xem (chỉ đọc).",
+"Hide Draft procedures from people who can't edit them":"Ẩn quy trình Bản nháp với người không có quyền sửa",
+"Hide preview":"Ẩn xem trước","Show preview":"Hiện xem trước","Information table":"Bảng thông tin","Information table (Purpose, Scope, Owner…)":"Bảng thông tin (Mục đích, Phạm vi, Người phụ trách…)",
+"Initial password *":"Mật khẩu ban đầu *","Insert step below":"Chèn bước bên dưới","Insert template rows":"Chèn dòng mẫu",
+"Label":"Nhãn","Value":"Giá trị",
+"Last 15 saves. \"Load\" copies that version into the editor; nothing changes until you save.":"15 lần lưu gần nhất. \"Mở lại\" sẽ chép phiên bản đó vào trình soạn; chưa thay đổi gì cho đến khi bạn lưu.",
+"Live preview":"Xem trước trực tiếp","Load this version":"Mở lại phiên bản này","Logo (emoji, or upload an image)":"Logo (emoji hoặc upload ảnh)",
+"Major bump":"Tăng phiên bản chính","Minor bump":"Tăng phiên bản phụ","Menu":"Menu","Move down":"Chuyển xuống","Move up":"Chuyển lên",
+"My Profile":"Hồ sơ của tôi","My procedures":"Quy trình của tôi","Name":"Tên",
+"Name, logo and accent colour shown in the sidebar and sign-in screen.":"Tên, logo và màu chủ đạo hiển thị ở thanh bên và màn hình đăng nhập.",
+"New Procedure":"Quy trình mới","＋ New Procedure":"＋ Quy trình mới","New procedure":"Quy trình mới","New":"Tạo mới",
+"New accounts get view-only access until an administrator grants more.":"Tài khoản mới chỉ có quyền xem cho đến khi quản trị viên cấp thêm.",
+"New password":"Mật khẩu mới","Next review":"Rà soát tiếp theo","Next review date":"Ngày rà soát tiếp theo","No account yet?":"Chưa có tài khoản?",
+"Not saved yet":"Chưa lưu","Notes":"Ghi chú","Overview / Description":"Tổng quan / Mô tả","PR, approval":"PR, phê duyệt","Password":"Mật khẩu",
+"Permissions":"Quyền","Personal information":"Thông tin cá nhân","Phone / Ext.":"Điện thoại / Số máy lẻ","Position / Job title":"Chức danh",
+"Procedure Editor":"Soạn quy trình","Procedure Library":"Thư viện quy trình","Procedure Steps":"Các bước thực hiện","Procedure steps":"Các bước thực hiện",
+"Procedure template & policy":"Mẫu quy trình & chính sách","Purpose, scope, prerequisites, owner… Use ▲▼ to reorder.":"Mục đích, phạm vi, điều kiện, người phụ trách… Dùng ▲▼ để sắp xếp.",
+"Register now":"Đăng ký ngay","Remove":"Xóa","Remove image":"Xóa ảnh","Remove step":"Xóa bước",
+"Renaming a category also updates every procedure that uses it.":"Đổi tên danh mục sẽ cập nhật luôn các quy trình đang dùng danh mục đó.",
+"Replace":"Thay ảnh","Review cycle (months)":"Chu kỳ rà soát (tháng)","Review overdue":"Quá hạn rà soát","Role":"Vai trò",
+"Save":"Lưu","💾 Save":"💾 Lưu","💾 Save profile":"💾 Lưu hồ sơ","💾 Save settings":"💾 Lưu cài đặt","Saved":"Đã lưu",
+"Search procedures…":"Tìm quy trình…","Search title, department, tag, owner…":"Tìm theo tiêu đề, phòng ban, tag, người tạo…",
+"Shown in the sidebar and on procedures you create.":"Hiển thị ở thanh bên và trên các quy trình bạn tạo.",
+"Sign In":"Đăng nhập","Sign Out":"Đăng xuất","Sign in":"Đăng nhập","Sign in to continue":"Đăng nhập để tiếp tục",
+"Sign in to customise your profile, procedures and settings":"Đăng nhập để tùy chỉnh hồ sơ, quy trình và cài đặt",
+"Site name":"Tên trang","Standard user":"Người dùng thường","Status":"Trạng thái","Step title":"Tiêu đề bước",
+"Studio · Editor":"Studio · Soạn thảo","Subtitle":"Dòng phụ đề","System Settings":"Cài đặt hệ thống","Tags (comma separated)":"Tag (cách nhau bởi dấu phẩy)",
+"Title":"Tiêu đề","Title *":"Tiêu đề *","Title, classification and lifecycle of the procedure.":"Tiêu đề, phân loại và vòng đời của quy trình.",
+"Update my name on procedures I own":"Cập nhật tên tôi trên các quy trình tôi sở hữu","Update password":"Đổi mật khẩu","Updated":"Cập nhật",
+"Upload image":"Upload ảnh","Upload photo":"Upload ảnh","Use image URL":"Dùng link ảnh",
+"Used for procedures and user profiles. Leave empty to allow free text.":"Dùng cho quy trình và hồ sơ người dùng. Để trống để cho phép nhập tự do.",
+"User Management":"Quản lý người dùng","Username":"Tên đăng nhập","Username *":"Tên đăng nhập *","Users":"Người dùng",
+"Uses the same accounts as the":"Dùng chung tài khoản với","Ver.":"Phiên bản","Version":"Phiên bản","View":"Xem","View procedures":"Xem quy trình",
+"What changed? (saved to history)":"Đã thay đổi gì? (lưu vào lịch sử)","Your name":"Tên của bạn",
+"e.g. Procurement":"vd. Procurement","e.g. Procurement Officer":"vd. Nhân viên mua hàng","e.g. Set up a user to self-approve PRs":"vd. Thiết lập user tự duyệt PR",
+"has all permissions and can manage users. New self-registered accounts start as view-only.":"có toàn quyền và quản lý được người dùng. Tài khoản tự đăng ký mới chỉ có quyền xem.",
+"← Back":"← Quay lại","⬆ Import JSON":"⬆ Import JSON","⬇ Download backup":"⬇ Tải bản sao lưu",
+"📎 Click to upload an illustration":"📎 Bấm để upload ảnh minh họa","📎 Click to upload, drop a file, or paste a screenshot":"📎 Bấm để upload, kéo thả file hoặc dán ảnh chụp màn hình",
+"🔒 Only the account owner can change this password (Change Password).":"🔒 Chỉ chủ tài khoản mới đổi được mật khẩu này (Đổi mật khẩu).",
+"＋ Add":"＋ Thêm","＋ Add User":"＋ Thêm người dùng","＋ Add row":"＋ Thêm dòng","＋ Add step":"＋ Thêm bước",
+"Describe the action":"Mô tả thao tác","Short description of the procedure's purpose":"Mô tả ngắn mục đích của quy trình",
+"Warnings, exceptions, related documents…":"Cảnh báo, ngoại lệ, tài liệu liên quan…","Name":"Tên","Username":"Tên đăng nhập",
+"No description":"Chưa có mô tả","No procedures match your filter.":"Không có quy trình nào khớp bộ lọc.","No procedures yet.":"Chưa có quy trình nào.",
+"Create your first procedure":"Tạo quy trình đầu tiên","No procedures match.":"Không có quy trình nào khớp.","No rows.":"Chưa có dòng nào.","No steps yet.":"Chưa có bước nào.",
+"You have view-only access. Ask an administrator for edit permission.":"Bạn chỉ có quyền xem. Liên hệ quản trị viên để được cấp quyền sửa.",
+"— None —":"— Không —","Uploading…":"Đang upload…","Saving…":"Đang lưu…","Restore it":"Khôi phục","Discard":"Bỏ qua",
+"Import procedures":"Import quy trình","Import":"Import","From":"Từ",". Images inside the file are uploaded automatically.":". Ảnh trong file sẽ được upload tự động.",
+"same title already exists":"đã có quy trình cùng tiêu đề","Status for imported procedures":"Trạng thái cho các quy trình import","Keep value from file":"Giữ như trong file",
+"By":"Bởi","Image":"Ảnh",
+"Account created — welcome!":"Đã tạo tài khoản — chào mừng bạn!","Account not found":"Không tìm thấy tài khoản",
+"At least one administrator is required":"Cần có ít nhất một quản trị viên","Could not restore":"Không khôi phục được","Deleted":"Đã xóa","Draft restored":"Đã khôi phục bản nháp",
+"Email looks invalid":"Email không hợp lệ","Enter a password":"Hãy nhập mật khẩu","Enter full name and username":"Hãy nhập họ tên và tên đăng nhập",
+"Enter your name and a username":"Hãy nhập tên và tên đăng nhập","Image uploaded":"Đã upload ảnh","Incorrect password":"Sai mật khẩu",
+"Keep at least one category":"Cần giữ ít nhất một danh mục","Name is required":"Bắt buộc nhập tên","New password is too short":"Mật khẩu mới quá ngắn",
+"No procedures found in file":"Không tìm thấy quy trình nào trong file","Not a valid JSON file":"File JSON không hợp lệ",
+"Not allowed for the shared viewer account":"Tài khoản viewer dùng chung không được phép thực hiện","Password changed":"Đã đổi mật khẩu",
+"Password is too short":"Mật khẩu quá ngắn","Passwords do not match":"Mật khẩu không khớp","Permission denied":"Không có quyền",
+"Please enter a title":"Hãy nhập tiêu đề","Profile saved":"Đã lưu hồ sơ","Select at least one procedure":"Chọn ít nhất một quy trình",
+"Site name is required":"Bắt buộc nhập tên trang","Current password is incorrect":"Mật khẩu hiện tại không đúng",
+"The shared viewer account cannot change its password":"Tài khoản viewer dùng chung không được đổi mật khẩu",
+"The shared viewer account has nothing to customise — use the Procedure Library":"Tài khoản viewer dùng chung không có gì để tùy chỉnh — hãy dùng Thư viện quy trình",
+"This procedure was deleted by someone else":"Quy trình này đã bị người khác xóa","Username already exists":"Tên đăng nhập đã tồn tại",
+"You cannot delete the account you are signed in with":"Không thể xóa tài khoản đang đăng nhập",
+"Database rules blocked the save — changes NOT stored.":"Rule của database chặn việc lưu — thay đổi CHƯA được lưu.",
+"Delete this procedure? This action cannot be undone.":"Xóa quy trình này? Không thể hoàn tác.","Delete this procedure? This cannot be undone.":"Xóa quy trình này? Không thể hoàn tác.",
+"Discard unsaved changes?":"Bỏ các thay đổi chưa lưu?","Replace your current unsaved edits with this version?":"Thay các chỉnh sửa chưa lưu bằng phiên bản này?",
+"Image URL (https://…)":"Link ảnh (https://…)",
+"⚠ Cannot save to the database.\n\nFirestore Security Rules are blocking writes for this app, so your changes are NOT being saved and other devices will not see them.\n\nFix: Firebase Console → Firestore Database → Rules → allow read, write for this project, then Publish.":"⚠ Không lưu được vào database.\n\nFirestore Security Rules đang chặn ghi dữ liệu nên thay đổi của bạn CHƯA được lưu và máy khác sẽ không thấy.\n\nCách sửa: Firebase Console → Firestore Database → Rules → cho phép read, write cho project này, rồi Publish."
+};
+const I18N_RX=[
+[/^(\d+) document\(s\) · (Administrator|Editor|Viewer)( — full access)?$/,(m,n,r,f)=>`${n} tài liệu · ${I18N_VI[r]}${f?' — toàn quyền':''}`],
+[/^(\d+) account\(s\)$/,'$1 tài khoản'],
+[/^(\d+) in use$/,'$1 đang dùng'],
+[/^(\d+) procedure\(s\) owned by you\.$/,'Bạn sở hữu $1 quy trình.'],
+[/^You can edit (\d+) of (\d+) procedure\(s\)\.$/,'Bạn có thể sửa $1 / $2 quy trình.'],
+[/^@(\S+) · (Administrator|Editor|Viewer)$/,(m,u,r)=>`@${u} · ${I18N_VI[r]}`],
+[/^Step (\d+)$/,'Bước $1'],
+[/^Version (.+)$/,'Phiên bản $1'],
+[/^Effective (\d.+)$/,'Hiệu lực $1'],
+[/^Next review (\d.+)$/,'Rà soát tiếp theo $1'],
+[/^Review (\d.+)$/,'Rà soát $1'],
+[/^Updated (\d.+)$/,'Cập nhật $1'],
+[/^Last saved (.+?)(?: · owner (.+))?$/,(m,d,o)=>`Lưu lần cuối ${d}${o?' · người tạo '+o:''}`],
+[/^\(set \+(\d+) months\)$/,'(đặt +$1 tháng)'],
+[/^(\d+) step\(s\) · (\d+) image\(s\)( · )?$/,'$1 bước · $2 ảnh$3'],
+[/^Uploading images… (\d+)\/(\d+)$/,'Đang upload ảnh… $1/$2'],
+[/^(\d+) procedure\(s\) imported$/,'Đã import $1 quy trình'],
+[/^💾 An unsaved draft from (.+) was found in this browser\.$/,'💾 Tìm thấy bản nháp chưa lưu lúc $1 trong trình duyệt này.'],
+[/^Remove step (\d+)\?$/,'Xóa bước $1?'],
+[/^Delete user "([\s\S]+)"\?$/,'Xóa người dùng "$1"?'],
+[/^"([\s\S]+)" is used (\d+) time\(s\)\. Existing items keep the value; it just won't be offered for new ones\. Remove\?$/,'"$1" đang được dùng $2 lần. Các mục cũ vẫn giữ giá trị này, chỉ là sẽ không còn để chọn cho mục mới. Xóa?'],
+[/^Data too large to save \((\d+) KB\)\. Use smaller \/ fewer images\.$/,'Dữ liệu quá lớn để lưu ($1 KB). Hãy dùng ảnh nhỏ hơn / ít ảnh hơn.'],
+[/^Warning: stored data is (\d+) KB \(limit ≈ 1 MB\)\.$/,'Cảnh báo: dữ liệu đang là $1 KB (giới hạn ≈ 1 MB).'],
+[/^Warning: data is getting large \((\d+) KB\)\. Consider fewer\/smaller images\.$/,'Cảnh báo: dữ liệu đang lớn ($1 KB). Nên dùng ít ảnh hoặc ảnh nhỏ hơn.'],
+[/^Image upload failed: ([\s\S]+?)( — nothing was saved)?$/,(m,e,n)=>`Upload ảnh thất bại: ${e}${n?' — chưa lưu gì':''}`],
+[/^Upload failed: ([\s\S]+)$/,'Upload thất bại: $1'],
+[/^Could not save(?: to the server)?: ([\s\S]+)$/,'Không lưu được: $1'],
+[/^Version v(.+) loaded — review and Save to apply$/,'Đã mở phiên bản v$1 — kiểm tra rồi bấm Lưu để áp dụng'],
+[/^Settings saved( — renamed values updated)?$/,(m,r)=>'Đã lưu cài đặt'+(r?' — đã cập nhật các giá trị được đổi tên':'')],
+[/^(View|Create|Edit own|Edit all|Delete)(, (View|Create|Edit own|Edit all|Delete))+$/,m=>m.split(', ').map(x=>({'View':'Xem','Create':'Tạo','Edit own':'Sửa của mình','Edit all':'Sửa tất cả','Delete':'Xóa'})[x]).join(', ')],
+[/^None$/,'Không có']
+];
+let LANG=(()=>{try{return localStorage.getItem('sop_lang')||'vi';}catch(e){return 'vi';}})();
+function trS(s){
+  if(LANG!=='vi'||s==null)return s;
+  s=String(s);const m=s.match(/^(\s*)([\s\S]*?)(\s*)$/),core=m[2];if(!core)return s;
+  let v=I18N_VI[core];
+  if(v==null)for(const [rx,rep] of I18N_RX){if(rx.test(core)){v=core.replace(rx,rep);break;}}
+  return v==null?s:m[1]+v+m[3];
+}
+let _i18nBusy=false;
+function _skip(el){return !el||!!el.closest('[translate="no"],script,style,textarea')||(el.tagName==='OPTION'&&!el.hasAttribute('value'));}
+function _trText(n){
+  if(_skip(n.parentElement))return;
+  if(n.__en===undefined)n.__en=n.data;
+  const want=trS(n.__en);if(n.data!==want)n.data=want;
+}
+function _trAttrs(el){
+  if(el.closest('[translate="no"]'))return;
+  for(const a of ['placeholder','title']){
+    if(!el.hasAttribute(a))continue;
+    const k='i18n'+a;if(el.dataset[k]===undefined)el.dataset[k]=el.getAttribute(a);
+    const want=trS(el.dataset[k]);if(el.getAttribute(a)!==want)el.setAttribute(a,want);
+  }
+}
+function i18nApply(root){
+  if(!root)return;_i18nBusy=true;
+  try{
+    if(root.nodeType===3){_trText(root);return;}
+    if(root.nodeType!==1)return;
+    _trAttrs(root);
+    const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT);
+    let n;while((n=w.nextNode())){if(n.nodeType===3)_trText(n);else if(n.hasAttribute('placeholder')||n.hasAttribute('title'))_trAttrs(n);}
+  }finally{_i18nBusy=false;}
+}
+function langSwitchHtml(){
+  return `<span class="langsw" translate="no">${['en','vi'].map(l=>`<button type="button" class="${LANG===l?'on':''}" onclick="setLang('${l}')">${l.toUpperCase()}</button>`).join('')}</span>`;
+}
+function ensureLangSwitch(){
+  _i18nBusy=true;
+  try{
+    const tb=document.querySelector('.topbar'),gate=document.querySelector('.gate');
+    let sw=document.getElementById('langSw');
+    const host=tb?tb.querySelector('.uchip'):gate;
+    if(!host){if(sw)sw.remove();return;}
+    if(sw&&sw.parentElement===(tb?tb.querySelector('.uchip'):gate))return;
+    if(sw)sw.remove();
+    sw=document.createElement('span');sw.id='langSw';sw.innerHTML=langSwitchHtml();
+    if(tb){host.insertBefore(sw,host.firstChild);}else{sw.className='gate-lang';gate.appendChild(sw);}
+  }finally{_i18nBusy=false;}
+}
+function setLang(l){
+  LANG=l==='en'?'en':'vi';try{localStorage.setItem('sop_lang',LANG);}catch(e){}
+  document.documentElement.lang=LANG;
+  const sw=document.getElementById('langSw');if(sw){_i18nBusy=true;sw.innerHTML=langSwitchHtml();_i18nBusy=false;}
+  i18nApply(document.body);
+}
+(function(){
+  document.documentElement.lang=LANG;
+  const nc=window.confirm.bind(window),na=window.alert.bind(window),np=window.prompt.bind(window);
+  window.confirm=m=>nc(trS(m));window.alert=m=>na(trS(m));window.prompt=(m,d)=>np(trS(m),d);
+  const start=()=>{
+    i18nApply(document.body);ensureLangSwitch();
+    new MutationObserver(ms=>{
+      for(const m of ms){
+        if(m.type==='characterData'){
+          const t=m.target;if(t.__en!==undefined&&t.data===trS(t.__en))continue; // our own write
+          t.__en=t.data;i18nApply(t);}
+        else m.addedNodes.forEach(n=>i18nApply(n));
+      }
+      ensureLangSwitch();
+    }).observe(document.body,{childList:true,subtree:true,characterData:true});
+  };
+  if(document.body)start();else document.addEventListener('DOMContentLoaded',start);
+})();
+</script>
 
 <!-- Firebase (CDN, no npm needed) -->
 <script type="module">
@@ -310,6 +517,8 @@ function pickFile(accept){return new Promise(res=>{const i=document.createElemen
 async function hashPw(pw){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pw));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 
 /* ---- permissions (identical rules to index.html) ---- */
+/* the shared guest account cannot change its password or profile */
+function isGuest(u){u=u||CURRENT;return !!(u&&u.role!=='admin'&&String(u.username||'').toLowerCase()==='viewer');}
 function isAdmin(u){u=u||CURRENT;return !!(u&&u.role==='admin');}
 function can(perm,u){u=u||CURRENT;if(!u)return false;if(u.role==='admin')return true;return !!(u.perms||{})[perm];}
 function canEditSop(sop,u){u=u||CURRENT;if(!u||!sop)return false;if(u.role==='admin'||can('editAll',u))return true;return can('editOwn',u)&&sop.ownerId===u.id;}
@@ -354,6 +563,7 @@ function startRealtime(){
   norm();applyTheme();startRealtime();
   const sid=ssGet('sop_uid');
   const u=sid&&DB.users.find(x=>x.id===sid);
+  if(u&&isGuest(u)){location.replace('index.html');return;}
   if(u){CURRENT=u;TAB=(location.hash==='#settings'&&isAdmin(u))?'settings':(location.hash==='#profile'?'profile':defaultTab());renderApp();}else renderGate();
 })();
 window.addEventListener('beforeunload',e=>{if(mode==='edit'&&dirty){e.preventDefault();e.returnValue='';}});
@@ -389,6 +599,7 @@ async function doLogin(){
   const f=DB.users.find(x=>x.username.toLowerCase()===u);
   if(!f){toast('Account not found');return;}
   if(f.pw!==await hashPw(p)){toast('Incorrect password');return;}
+  if(isGuest(f)){toast('The shared viewer account has nothing to customise — use the Procedure Library');setTimeout(()=>location.href='index.html',1200);return;}
   CURRENT=f;ssSet('sop_uid',f.id);TAB=defaultTab();mode='list';activeId=null;renderApp();
 }
 function logout(){if(mode==='edit'&&dirty&&!confirm('Discard unsaved changes?'))return;CURRENT=null;ssDel('sop_uid');mode='list';draft=null;dirty=false;renderGate();}
@@ -471,9 +682,9 @@ function renderSopList(){
     </div>
     ${rows.length?`<div class="tbl-wrap"><table><thead><tr><th>Title</th><th>Category</th><th>Department</th><th>Status</th><th>Ver.</th><th>Next review</th><th>Updated</th><th></th></tr></thead><tbody>
       ${rows.map(d=>`<tr>
-        <td><b style="color:var(--ink-strong)">${esc(d.title||'(Untitled)')}</b><div style="font-size:12px;color:var(--muted)">${esc(d.ownerName||'')}</div></td>
-        <td style="font-size:13px">${esc(d.category||'')}</td>
-        <td style="font-size:13px">${esc(d.dept||'—')}</td>
+        <td translate="no"><b style="color:var(--ink-strong)">${esc(d.title||'(Untitled)')}</b><div style="font-size:12px;color:var(--muted)">${esc(d.ownerName||'')}</div></td>
+        <td style="font-size:13px" translate="no">${esc(d.category||'')}</td>
+        <td style="font-size:13px" translate="no">${esc(d.dept||'—')}</td>
         <td>${statusBadge(statusOf(d))}</td>
         <td style="font-variant-numeric:tabular-nums">${esc(d.version||'')}</td>
         <td style="font-size:13px" class="${isOverdue(d)?'due':''}">${d.reviewDate?fmtISO(d.reviewDate)+(isOverdue(d)?' ⚠':''):'—'}</td>
@@ -516,7 +727,7 @@ function renderEditor(){
   const depts=s.departments||[];
   $('wrap').innerHTML=`
     <div class="pagehead">
-      <div><h2>${activeId?esc(draft.title||'Edit procedure'):'New procedure'}</h2>
+      <div><h2 ${activeId&&draft.title?'translate="no"':''}>${activeId?esc(draft.title||'Edit procedure'):'New procedure'}</h2>
         <div class="sub">${orig?`Last saved ${fmtDT(orig.updatedAt)}${orig.ownerName?' · owner '+esc(orig.ownerName):''}`:'Not saved yet'}</div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn-sm" onclick="togglePreview()">${showPreview?'Hide':'Show'} preview</button>
@@ -537,7 +748,7 @@ function renderEditor(){
               :`<input id="f-dept" value="${esc(draft.dept)}" placeholder="e.g. Procurement">`}</div>
           </div>
           <div class="row3">
-            <div class="field"><label>Version</label><div style="display:flex;gap:6px"><input id="f-version" value="${esc(draft.version)}" style="flex:1"><button class="btn-sm" title="Minor bump" onclick="bump(0)">+0.1</button><button class="btn-sm" title="Major bump" onclick="bump(1)">+1</button></div></div>
+            <div class="field"><label>Version</label><div style="display:flex;gap:6px"><input id="f-version" value="${esc(draft.version)}" style="flex:1;min-width:64px"><button class="btn-sm" title="Minor bump" onclick="bump(0)">+0.1</button><button class="btn-sm" title="Major bump" onclick="bump(1)">+1</button></div></div>
             <div class="field"><label>Status</label><select id="f-status">${STATUSES.map(x=>`<option value="${x.k}" ${x.k===draft.status?'selected':''}>${x.label}</option>`).join('')}</select></div>
             <div class="field"><label>Tags (comma separated)</label><input id="f-tags" value="${esc((draft.tags||[]).join(', '))}" placeholder="PR, approval"></div>
           </div>
@@ -568,7 +779,7 @@ function renderEditor(){
 
         ${orig&&(orig.history||[]).length?`<div class="panel"><h3>Change history</h3><p class="hint">Last ${HISTORY_MAX} saves. "Load" copies that version into the editor; nothing changes until you save.</p>
           <div class="hist">${orig.history.slice().reverse().map((h,ri)=>{const i=orig.history.length-1-ri;return `<div class="h">
-            <div><b>v${esc(h.version||'?')}</b> ${statusBadge(h.status||'approved')} — ${esc(h.note||'(no note)')}</div>
+            <div><b>v${esc(h.version||'?')}</b> ${statusBadge(h.status||'approved')} — <span ${h.note?'translate="no"':''}>${esc(h.note||'(no note)')}</span></div>
             <div class="t">${fmtDT(h.at)} · ${esc(h.byName||'')} ${h.snap?` · <a href="#" onclick="loadHistory(${i});return false;">Load this version</a>`:''}</div></div>`;}).join('')}</div></div>`:''}
 
         <div class="savebar">
@@ -682,17 +893,17 @@ function renderImgCell(i){
 /* preview — mirrors the Library viewer */
 function docHtml(d){
   const info=(d.info||[]).filter(r=>r.k||r.v),steps=(d.steps||[]).filter(s=>s.title||s.text||s.img);
-  return `<h1 class="doc-title" style="font-size:24px">${esc(d.title||'(Untitled)')}</h1>
+  return `<h1 class="doc-title" style="font-size:24px" ${d.title?'translate="no"':''}>${esc(d.title||'(Untitled)')}</h1>
     <div class="doc-meta">
-      <span class="tag">${esc(d.category||'Other')}</span>${statusBadge(statusOf(d))}
-      ${d.version?`<span>Version ${esc(d.version)}</span>`:''}${d.dept?`<span>${esc(d.dept)}</span>`:''}
+      <span class="tag" translate="no">${esc(d.category||'Other')}</span>${statusBadge(statusOf(d))}
+      ${d.version?`<span>Version ${esc(d.version)}</span>`:''}${d.dept?`<span translate="no">${esc(d.dept)}</span>`:''}
       ${d.effectiveDate?`<span>Effective ${fmtISO(d.effectiveDate)}</span>`:''}${d.reviewDate?`<span>Review ${fmtISO(d.reviewDate)}</span>`:''}
     </div>
-    ${d.summary?`<div class="prose"><p>${nl2br(d.summary)}</p></div>`:''}
-    ${info.length?`<div class="info-grid">${info.map(r=>`<div class="k">${esc(r.k)}</div><div class="v">${nl2br(r.v)}</div>`).join('')}</div>`:''}
+    ${d.summary?`<div class="prose" translate="no"><p>${nl2br(d.summary)}</p></div>`:''}
+    ${info.length?`<div class="info-grid" translate="no">${info.map(r=>`<div class="k">${esc(r.k)}</div><div class="v">${nl2br(r.v)}</div>`).join('')}</div>`:''}
     ${steps.length?`<h3 class="prose">Procedure Steps</h3>`:''}
-    ${steps.map((s,i)=>`<div class="step"><div class="num">${i+1}</div><div class="body">${s.title?`<h4>${esc(s.title)}</h4>`:''}${s.text?`<p>${nl2br(s.text)}</p>`:''}${s.img?`<img src="${esc(s.img)}" alt="">`:''}</div></div>`).join('')}
-    ${d.notes?`<div class="prose"><h3>Notes</h3><p>${nl2br(d.notes)}</p></div>`:''}`;
+    ${steps.map((s,i)=>`<div class="step"><div class="num">${i+1}</div><div class="body" translate="no">${s.title?`<h4>${esc(s.title)}</h4>`:''}${s.text?`<p>${nl2br(s.text)}</p>`:''}${s.img?`<img src="${esc(s.img)}" alt="">`:''}</div></div>`).join('')}
+    ${d.notes?`<div class="prose"><h3>Notes</h3><p translate="no">${nl2br(d.notes)}</p></div>`:''}`;
 }
 function updatePreview(){const p=$('preview');if(p&&showPreview)p.innerHTML=`<div class="pv-label">Live preview</div>${docHtml(draft)}`;}
 
@@ -788,7 +999,7 @@ function renderProfile(){
     <div class="panel">
       <h3>My procedures</h3><p class="hint">${owned.length} procedure(s) owned by you.</p>
       ${owned.length?owned.map(d=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft)">
-        <span>${esc(d.title)} ${statusBadge(statusOf(d))}</span>${canEditSop(d)?`<button class="btn-sm" onclick="TAB='sops';editSop('${d.id}');renderApp()">Edit</button>`:''}</div>`).join(''):''}
+        <span><span translate="no">${esc(d.title)}</span> ${statusBadge(statusOf(d))}</span>${canEditSop(d)?`<button class="btn-sm" onclick="TAB='sops';editSop('${d.id}');renderApp()">Edit</button>`:''}</div>`).join(''):''}
     </div>`;
 }
 async function uploadAvatar(){
@@ -798,6 +1009,7 @@ async function uploadAvatar(){
 }
 function clearAvatar(){profAvatar='';$('pAv').innerHTML=avatarHtml({name:$('p-name').value});}
 async function saveProfile(){
+  if(isGuest()){toast('Not allowed for the shared viewer account');return;}
   const name=$('p-name').value.trim();if(!name){toast('Name is required');return;}
   const email=$('p-email').value.trim();
   if(email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){toast('Email looks invalid');return;}
@@ -808,6 +1020,7 @@ async function saveProfile(){
   if(ok){toast('Profile saved');renderApp();}
 }
 async function doChangePw(){
+  if(isGuest()){toast('Not allowed for the shared viewer account');return;}
   const o=$('cp-old').value,n=$('cp-new').value,n2=$('cp-new2').value;
   if(await hashPw(o)!==CURRENT.pw){toast('Current password is incorrect');return;}
   if(n.length<4){toast('New password is too short');return;}
@@ -933,7 +1146,7 @@ async function importPick(){
     <p class="hint" style="margin:0 0 12px;font-size:13px;color:var(--muted)">From <b>${esc(IMP.source)}</b>. Images inside the file are uploaded automatically.</p>
     ${list.map((d,i)=>{const dup=titles.has(d.title.trim().toLowerCase());const n=(d.steps||[]).filter(s=>s.img).length;
       return `<label class="check" style="padding:7px 0;border-bottom:1px solid var(--line-soft);align-items:flex-start"><input type="checkbox" class="imp-ck" data-i="${i}" ${dup?'':'checked'}>
-      <span><b style="color:var(--ink-strong)">${esc(d.title)}</b><br><span style="font-size:12px;color:var(--muted)">${(d.steps||[]).length} step(s) · ${n} image(s)${dup?' · <span class="due">same title already exists</span>':''}</span></span></label>`;}).join('')}
+      <span><b style="color:var(--ink-strong)" translate="no">${esc(d.title)}</b><br><span style="font-size:12px;color:var(--muted)">${(d.steps||[]).length} step(s) · ${n} image(s)${dup?' · <span class="due">same title already exists</span>':''}</span></span></label>`;}).join('')}
     <div class="field" style="margin:16px 0 0"><label>Status for imported procedures</label>
       <select id="imp-st"><option value="">Keep value from file</option>${STATUSES.map(x=>`<option value="${x.k}">${x.label}</option>`).join('')}</select></div>
     <div id="imp-prog" style="margin-top:12px;font-size:13px;color:var(--accent-dark)"></div>`,
