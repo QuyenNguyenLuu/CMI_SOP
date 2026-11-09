@@ -152,6 +152,12 @@
     .info-grid{grid-template-columns:120px 1fr}
   }
   .menu-toggle{display:none}
+  .st{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px}
+  .st-draft{background:#efeae0;color:#7d7668}.st-review{background:var(--warn-soft);color:#8a6418}
+  .st-approved{background:var(--accent-soft);color:var(--accent-dark)}.st-obsolete{background:var(--danger-soft);color:var(--danger)}
+  .avatar img,.topbar .uchip .av img,.mk img{width:100%;height:100%;object-fit:cover;display:block}
+  .avatar,.topbar .uchip .av,.brand .mk,.gate-logo .mk{overflow:hidden}
+  a.nav-btn{text-decoration:none}
 </style>
 </head>
 <body>
@@ -209,6 +215,30 @@ function initials(n){return (n||'?').trim().split(/\s+/).slice(-2).map(w=>w[0]).
 function fmtDate(ts){if(!ts)return'';return new Date(ts).toLocaleDateString('en-GB');}
 function imgSrc(v){return v||'';}
 function modalOpen(){return $('overlay').classList.contains('show');}
+
+/* ---- settings managed in studio.html (System Settings) ---- */
+const STATUS_LABEL={draft:'Draft',review:'In Review',approved:'Approved',obsolete:'Obsolete'};
+function SET(){return DB.settings||{};}
+function getCats(){const c=SET().categories;return (c&&c.length)?c:CATEGORIES;}
+function siteName(){return SET().siteName||'SOP Library';}
+function isImgUrl(v){return /^(https?:|data:image\/)/i.test(String(v||''));}
+function logoHtml(){const v=SET().logo||'📚';return isImgUrl(v)?`<img src="${esc(v)}" alt="">`:esc(v);}
+function avatarHtml(u){return u&&isImgUrl(u.avatar)?`<img src="${esc(u.avatar)}" alt="">`:initials(u&&u.name);}
+function statusOf(d){return d.status||'approved';}
+function statusBadge(d){const k=statusOf(d);return `<span class="st st-${k}">${STATUS_LABEL[k]||k}</span>`;}
+function fmtISO(iso){if(!iso)return'';const p=iso.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:iso;}
+function visibleSops(){return DB.sops.filter(d=>!(SET().hideDrafts!==false&&statusOf(d)==='draft'&&!canEditSop(d)));}
+function applyTheme(){
+  const a=SET().accent;if(!/^#[0-9a-f]{6}$/i.test(a||''))return;
+  const n=parseInt(a.slice(1),16),r=n>>16,g=n>>8&255,b=n&255,cl=v=>Math.max(0,Math.min(255,v));
+  const dk='#'+((1<<24)+(cl(r-24)<<16)+(cl(g-24)<<8)+cl(b-24)).toString(16).slice(1);
+  const st=document.documentElement.style;st.setProperty('--accent',a);st.setProperty('--accent-dark',dk);
+  st.setProperty('--accent-soft',`rgb(${Math.round(r+(255-r)*.88)},${Math.round(g+(255-g)*.88)},${Math.round(b+(255-b)*.88)})`);
+  document.title=siteName();
+}
+function ssSet(k,v){try{sessionStorage.setItem(k,v);}catch(e){}}
+function ssGet(k){try{return sessionStorage.getItem(k);}catch(e){return null;}}
+function ssDel(k){try{sessionStorage.removeItem(k);}catch(e){}}
 
 /* ---- ImgBB image hosting ----
    Paste your ImgBB API key below. Get one free at https://api.imgbb.com/
@@ -317,7 +347,9 @@ async function saveAll(){
   DB.users=DB.users||[]; DB.sops=DB.sops||[];
   await ensureSeed();
   startRealtime();
-  renderGate();
+  applyTheme();
+  const sid=ssGet('sop_uid'),su=sid&&DB.users.find(x=>x.id===sid);
+  if(su){CURRENT=su;renderApp();}else renderGate();
 })();
 
 async function ensureSeed(){
@@ -355,6 +387,7 @@ function startRealtime(){
     _lastSaved=jsonStr;
     try{ DB=JSON.parse(jsonStr); }catch(e){ return; }
     DB.users=DB.users||[]; DB.sops=DB.sops||[];
+    applyTheme();
     if(CURRENT){
       CURRENT=DB.users.find(u=>u.id===CURRENT.id)||CURRENT;
       if(!modalOpen()) renderApp();
@@ -373,8 +406,8 @@ function renderGate(){
   $('root').innerHTML=`
   <div class="gate">
     <div class="gate-card">
-      <div class="gate-logo"><div class="mk">📚</div></div>
-      <div class="gate-title">SOP & Procedure Library</div>
+      <div class="gate-logo"><div class="mk">${logoHtml()}</div></div>
+      <div class="gate-title">${esc(siteName())}</div>
       <div class="gate-sub">Sign in to continue</div>
       <div class="field"><label>Username</label><input id="lg-user" placeholder="Username" value="viewer" onkeydown="if(event.key==='Enter')document.getElementById('lg-pass').focus()"></div>
       <div class="field" style="margin-bottom:0"><label>Password</label><input id="lg-pass" type="password" placeholder="••••••" value="viewer" onkeydown="if(event.key==='Enter')doLogin()"></div>
@@ -389,7 +422,7 @@ function renderRegister(){
   $('root').innerHTML=`
   <div class="gate">
     <div class="gate-card">
-      <div class="gate-logo"><div class="mk">📚</div></div>
+      <div class="gate-logo"><div class="mk">${logoHtml()}</div></div>
       <div class="gate-title">Create an account</div>
       <div class="gate-sub">New accounts get view-only access until an administrator grants more.</div>
       <div class="field"><label>Full name</label><input id="rg-name" placeholder="Your name"></div>
@@ -415,7 +448,7 @@ async function doRegister(){
   const nu={id:uid(),name,username,role:'staff',pw:await hashPw(pass),perms:defaultPerms(),createdAt:Date.now()};
   DB.users.push(nu);
   await saveAll();
-  CURRENT=nu; gateMode='login'; TAB='library'; activeId=null; mode='view';
+  CURRENT=nu; ssSet('sop_uid',nu.id); gateMode='login'; TAB='library'; activeId=null; mode='view';
   toast('Account created — welcome!');
   renderApp();
 }
@@ -425,22 +458,25 @@ async function doLogin(){
   const f=DB.users.find(x=>x.username.toLowerCase()===u);
   if(!f){toast('Account not found');return;}
   if(f.pw!==await hashPw(p)){toast('Incorrect password');return;}
-  CURRENT=f; TAB='library'; activeId=null; mode='view'; renderApp();
+  CURRENT=f; ssSet('sop_uid',f.id); TAB='library'; activeId=null; mode='view'; renderApp();
 }
-function logout(){CURRENT=null;gateMode='login';renderGate();}
+function logout(){CURRENT=null;ssDel('sop_uid');gateMode='login';renderGate();}
 
 /* ================= SHELL ================= */
 function renderApp(){
   if(!CURRENT){renderGate();return;}
-  const tabs=[{id:'library',ic:'📄',label:'Procedure Library',count:DB.sops.length}];
+  const tabs=[{id:'library',ic:'📄',label:'Procedure Library',count:visibleSops().length}];
   if(isAdmin())tabs.push({id:'users',ic:'👤',label:'Users',count:DB.users.length});
   $('root').innerHTML=`
   <aside id="aside">
-    <div class="brand"><div class="mk">📚</div><div><div class="bn">SOP Library</div><div class="bs">Internal Procedures</div></div></div>
-    <div class="profile"><div class="avatar">${initials(CURRENT.name)}</div><div><div class="pn">${esc(CURRENT.name)}</div><div class="pw">${roleLabel(CURRENT)}</div></div></div>
+    <div class="brand"><div class="mk">${logoHtml()}</div><div><div class="bn">${esc(siteName())}</div><div class="bs">${esc(SET().siteSub||'Internal Procedures')}</div></div></div>
+    <div class="profile"><div class="avatar">${avatarHtml(CURRENT)}</div><div><div class="pn">${esc(CURRENT.name)}</div><div class="pw">${esc([CURRENT.position,CURRENT.dept].filter(Boolean).join(' · ')||roleLabel(CURRENT))}</div></div></div>
     <nav>
       <div class="nav-sec">Menu</div>
       ${tabs.map(t=>`<button class="nav-btn ${TAB===t.id?'on':''}" onclick="go('${t.id}')"><span>${t.ic}</span><span>${t.label}</span><span class="nav-count">${t.count}</span></button>`).join('')}
+      <div class="nav-sec">Customise</div>
+      <a class="nav-btn" href="studio.html"><span>✎</span><span>${can('create')||can('editOwn')||can('editAll')?'Studio · Editor':'My Profile'}</span></a>
+      ${isAdmin()?`<a class="nav-btn" href="studio.html#settings"><span>⚙</span><span>System Settings</span></a>`:''}
     </nav>
     <div class="side-foot"><button class="btn-sm" style="width:100%;color:var(--side-ink);border-color:var(--side-line)" onclick="changePw()">🔑 Change Password</button></div>
   </aside>
@@ -450,7 +486,7 @@ function renderApp(){
         <button class="menu-toggle btn-sm" onclick="document.getElementById('aside').classList.toggle('open')">☰</button>
         <div class="crumb" id="crumb">${TAB_TITLE[TAB]}</div>
       </div>
-      <div class="uchip"><div class="av">${initials(CURRENT.name)}</div><span>${esc(CURRENT.name)}</span><button class="logout" onclick="logout()">Sign Out</button></div>
+      <div class="uchip"><div class="av">${avatarHtml(CURRENT)}</div><span>${esc(CURRENT.name)}</span><button class="logout" onclick="logout()">Sign Out</button></div>
     </div>
     <div class="wrap" id="wrap"></div>
   </main>`;
@@ -461,21 +497,21 @@ function go(t){TAB=t;activeId=null;mode='view';draft=null;renderApp();}
 /* ================= LIBRARY ================= */
 function filteredSops(){
   const q=searchQ.toLowerCase();
-  return DB.sops.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).filter(d=>{
+  return visibleSops().slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).filter(d=>{
     if(activeCat&&d.category!==activeCat)return false;
     if(!q)return true;
-    return ((d.title||'')+' '+(d.summary||'')+' '+(d.category||'')).toLowerCase().includes(q);
+    return [d.title,d.summary,d.category,d.dept,(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q);
   });
 }
 function renderLibrary(){
   if(mode==='edit'){renderEditor();return;}
   if(activeId){renderViewer();return;}
-  const cats=[...new Set(DB.sops.map(d=>d.category).filter(Boolean))];
+  const cats=[...new Set(visibleSops().map(d=>d.category).filter(Boolean))];
   const items=filteredSops();
   $('crumb').textContent=TAB_TITLE.library;
   $('wrap').innerHTML=`
     <div class="pagehead">
-      <div><h2>Procedure Library</h2><div class="sub">${DB.sops.length} document(s) · ${roleLabel(CURRENT)}${isAdmin()?' — full access':''}</div></div>
+      <div><h2>Procedure Library</h2><div class="sub">${visibleSops().length} document(s) · ${roleLabel(CURRENT)}${isAdmin()?' — full access':''}</div></div>
       ${can('create')?`<button class="btn btn-primary" onclick="newSop()">＋ New Procedure</button>`:''}
     </div>
     <div class="toolbar">
@@ -497,7 +533,7 @@ function cardHtml(d){
   return `<div class="card" onclick="openSop('${d.id}')">
     <div class="ct">${esc(d.title||'(Untitled)')}</div>
     <div class="cs">${esc(d.summary||'No description')}</div>
-    <div class="cf"><span class="tag">${esc(d.category||'Other')}</span><span>${owner?owner+' · ':''}${d.updatedAt?fmtDate(d.updatedAt):''}</span></div>
+    <div class="cf"><span class="tag">${esc(d.category||'Other')}</span>${statusOf(d)!=='approved'?statusBadge(d):''}<span>${owner?owner+' · ':''}${d.updatedAt?fmtDate(d.updatedAt):''}</span></div>
   </div>`;
 }
 function setCat(c){activeCat=c;renderLibrary();}
@@ -517,7 +553,11 @@ function renderViewer(){
         <h1 class="doc-title">${esc(d.title)}</h1>
         <div class="doc-meta">
           <span class="tag">${esc(d.category||'Other')}</span>
+          ${statusBadge(d)}
           ${d.version?`<span>Version ${esc(d.version)}</span>`:''}
+          ${d.dept?`<span>${esc(d.dept)}</span>`:''}
+          ${d.effectiveDate?`<span>Effective ${fmtISO(d.effectiveDate)}</span>`:''}
+          ${d.reviewDate?`<span>Next review ${fmtISO(d.reviewDate)}</span>`:''}
           ${d.ownerName?`<span>By ${esc(d.ownerName)}</span>`:''}
           ${d.updatedAt?`<span>Updated ${fmtDate(d.updatedAt)}</span>`:''}
         </div>
@@ -542,7 +582,7 @@ async function delSop(id){
 }
 
 /* ================= EDITOR ================= */
-function blankSop(){return{title:'',category:CATEGORIES[0],version:'1.0',summary:'',info:[{k:'Purpose',v:''},{k:'Scope',v:''}],steps:[{title:'',text:'',img:''}],notes:''};}
+function blankSop(){return{title:'',category:getCats()[0],version:'1.0',summary:'',info:[{k:'Purpose',v:''},{k:'Scope',v:''}],steps:[{title:'',text:'',img:''}],notes:''};}
 function newSop(){if(!can('create')){toast('Permission denied');return;}activeId=null;draft=blankSop();mode='edit';renderLibrary();}
 function editSop(){const d=findSop(activeId);if(!canEditSop(d)){toast('Permission denied');return;}draft=JSON.parse(JSON.stringify(d));mode='edit';renderLibrary();}
 function cancelEdit(){draft=null;mode='view';renderLibrary();}
@@ -556,7 +596,7 @@ function renderEditor(){
     </div>
     <div class="field"><label>Title *</label><input id="f-title" value="${esc(draft.title)}" placeholder="e.g. Set up a user to self-approve PRs"></div>
     <div class="row2">
-      <div class="field"><label>Category</label><select id="f-cat">${CATEGORIES.map(c=>`<option ${c===draft.category?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+      <div class="field"><label>Category</label><select id="f-cat">${[...new Set([...getCats(),draft.category].filter(Boolean))].map(c=>`<option ${c===draft.category?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
       <div class="field"><label>Version</label><input id="f-ver" value="${esc(draft.version)}"></div>
     </div>
     <div class="field"><label>Overview / Description</label><textarea id="f-sum" rows="3" placeholder="Short description of the procedure's purpose">${esc(draft.summary)}</textarea></div>
