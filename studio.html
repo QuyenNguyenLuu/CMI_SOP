@@ -220,6 +220,7 @@
    text nodes, placeholders, titles, toasts and dialogs to Vietnamese.
    Procedure content is never translated (marked translate="no").           */
 const I18N_VI={
+"Parent section":"Mục cha","Parent sections":"Mục cha","All parent sections":"Tất cả mục cha","Unassigned":"Chưa phân mục","Groups shown in the Procedure Library list. Renaming a section also updates every procedure in it.":"Các nhóm hiển thị trong danh sách Thư viện quy trình. Đổi tên mục cha sẽ cập nhật luôn các quy trình thuộc mục đó.",
 "(Untitled)":"(Chưa có tiêu đề)","(you)":"(bạn)","(no note)":"(không có ghi chú)",
 "Accent colour":"Màu chủ đạo","Actions":"Thao tác","Add User":"Thêm người dùng","Administrator":"Quản trị viên",
 "Administrator (all permissions)":"Quản trị viên (toàn quyền)","Editor":"Biên tập viên","Viewer":"Người xem",
@@ -456,6 +457,7 @@ function setLang(l){
 const DEFAULT_SETTINGS={
   siteName:'SOP Library', siteSub:'Internal Procedures', logo:'📚', accent:'#2f5d54',
   categories:["Standard Operating Procedure (SOP)","User Guide","Policy","Form / Template","Other"],
+  parents:['Inventory','Purchasing','Shop Floor Control','Quality System','Estimating / BOM'],
   departments:[], infoTemplate:['Purpose','Scope'], reviewMonths:12, hideDrafts:true
 };
 const STATUSES=[{k:'draft',label:'Draft'},{k:'review',label:'In Review'},{k:'approved',label:'Approved'},{k:'obsolete',label:'Obsolete'}];
@@ -464,7 +466,7 @@ const HISTORY_MAX=15;
 
 let DB={sops:[],users:[],settings:{}};
 let CURRENT=null, TAB='sops', activeId=null, mode='list', draft=null, dirty=false;
-let listQ='', listStatus='', listCat='', showPreview=true, _lastSaved='', _pvTimer=null;
+let listQ='', listStatus='', listCat='', listParent=null, showPreview=true, _lastSaved='', _pvTimer=null;
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -487,6 +489,7 @@ function ssSet(k,v){try{sessionStorage.setItem(k,v);}catch(e){}}
 function ssDel(k){try{sessionStorage.removeItem(k);}catch(e){}}
 function modalOpen(){return $('overlay').classList.contains('show');}
 function S(){return Object.assign({},DEFAULT_SETTINGS,DB.settings||{});}
+function parents(){const p=(DB.settings||{}).parents;return Array.isArray(p)?p:DEFAULT_SETTINGS.parents;}
 function cats(){const c=S().categories;return (c&&c.length)?c:DEFAULT_SETTINGS.categories;}
 function statusOf(d){return d.status||'approved';}
 function statusBadge(k){const s=STATUSES.find(x=>x.k===k)||STATUSES[2];return `<span class="st st-${s.k}">${s.label}</span>`;}
@@ -656,8 +659,9 @@ function renderSopList(){
   const rows=all.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).filter(d=>{
     if(listStatus==='overdue'){if(!isOverdue(d))return false;}else if(listStatus&&statusOf(d)!==listStatus)return false;
     if(listCat&&d.category!==listCat)return false;
+    if(listParent!==null&&(d.parent||'')!==listParent)return false;
     if(!q)return true;
-    return [d.title,d.summary,d.category,d.dept,d.ownerName,(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q);
+    return [d.title,d.summary,d.category,d.dept,d.parent,d.ownerName,(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q);
   });
   const cnt=k=>all.filter(d=>statusOf(d)===k).length;
   const canAny=can('create')||mine.length;
@@ -679,10 +683,15 @@ function renderSopList(){
         <option value="overdue" ${listStatus==='overdue'?'selected':''}>Review overdue</option></select>
       <select id="lc" style="padding:9px 12px;border:1px solid var(--line);border-radius:20px;background:#fff;max-width:240px">
         <option value="">All categories</option>${cats().map(c=>`<option ${listCat===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+      <select id="lp" style="padding:9px 12px;border:1px solid var(--line);border-radius:20px;background:#fff;max-width:220px">
+        <option value="__all" ${listParent===null?'selected':''}>All parent sections</option>
+        ${parents().map(c=>`<option value="${esc(c)}" ${listParent===c?'selected':''}>${esc(c)}</option>`).join('')}
+        <option value="" ${listParent===''?'selected':''}>Unassigned</option></select>
     </div>
-    ${rows.length?`<div class="tbl-wrap"><table><thead><tr><th>Title</th><th>Category</th><th>Department</th><th>Status</th><th>Ver.</th><th>Next review</th><th>Updated</th><th></th></tr></thead><tbody>
+    ${rows.length?`<div class="tbl-wrap"><table><thead><tr><th>Title</th><th>Parent section</th><th>Category</th><th>Department</th><th>Status</th><th>Ver.</th><th>Next review</th><th>Updated</th><th></th></tr></thead><tbody>
       ${rows.map(d=>`<tr>
         <td translate="no"><b style="color:var(--ink-strong)">${esc(d.title||'(Untitled)')}</b><div style="font-size:12px;color:var(--muted)">${esc(d.ownerName||'')}</div></td>
+        <td style="font-size:13px">${canEditSop(d)?`<select class="qp" data-id="${d.id}" style="padding:5px 8px;border:1px solid var(--line);border-radius:4px;background:#fff;max-width:170px;font-size:12.5px"><option value="">— None —</option>${[...new Set([...parents(),d.parent].filter(Boolean))].map(c=>`<option value="${esc(c)}" ${c===d.parent?'selected':''}>${esc(c)}</option>`).join('')}</select>`:`<span translate="no">${esc(d.parent||'—')}</span>`}</td>
         <td style="font-size:13px" translate="no">${esc(d.category||'')}</td>
         <td style="font-size:13px" translate="no">${esc(d.dept||'—')}</td>
         <td>${statusBadge(statusOf(d))}</td>
@@ -696,12 +705,17 @@ function renderSopList(){
   const lq=$('lq');lq.oninput=e=>{listQ=e.target.value;const p=e.target.selectionStart;renderSopList();const n=$('lq');n.focus();n.setSelectionRange(p,p);};
   $('ls').onchange=e=>{listStatus=e.target.value;renderSopList();};
   $('lc').onchange=e=>{listCat=e.target.value;renderSopList();};
+  $('lp').onchange=e=>{listParent=e.target.value==='__all'?null:e.target.value;renderSopList();};
+  document.querySelectorAll('.qp').forEach(el=>el.onchange=async()=>{
+    const id=el.dataset.id,v=el.value;
+    if(await commit(db=>{const x=db.sops.find(s=>s.id===id);if(!x||!canEditSop(x))return false;x.parent=v;}))toast('Saved');
+    renderSopList();});
 }
 
 /* ================= EDITOR ================= */
 function blankSop(){
   const s=S();
-  return {title:'',category:cats()[0],dept:CURRENT.dept||'',version:'1.0',status:'draft',effectiveDate:'',reviewDate:'',tags:[],
+  return {title:'',parent:'',category:cats()[0],dept:CURRENT.dept||'',version:'1.0',status:'draft',effectiveDate:'',reviewDate:'',tags:[],
     summary:'',info:(s.infoTemplate||[]).map(k=>({k,v:''})),steps:[{title:'',text:'',img:''}],notes:''};
 }
 function draftKey(){return 'sop_studio_draft_'+(activeId||'new')+'_'+CURRENT.id;}
@@ -741,7 +755,8 @@ function renderEditor(){
         <div class="panel">
           <h3>Basics</h3><p class="hint">Title, classification and lifecycle of the procedure.</p>
           <div class="field"><label>Title *</label><input id="f-title" value="${esc(draft.title)}" placeholder="e.g. Set up a user to self-approve PRs"></div>
-          <div class="row2">
+          <div class="row3">
+            <div class="field"><label>Parent section</label><select id="f-parent"><option value="">— None —</option>${[...new Set([...parents(),draft.parent].filter(Boolean))].map(c=>`<option value="${esc(c)}" ${c===draft.parent?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
             <div class="field"><label>Category</label><select id="f-category">${[...new Set([...cats(),draft.category].filter(Boolean))].map(c=>`<option ${c===draft.category?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
             <div class="field"><label>Department</label>${depts.length
               ?`<select id="f-dept"><option value="">— None —</option>${[...new Set([...depts,draft.dept].filter(Boolean))].map(c=>`<option ${c===draft.dept?'selected':''}>${esc(c)}</option>`).join('')}</select>`
@@ -791,7 +806,7 @@ function renderEditor(){
       <div class="preview" id="preview"></div>
     </div>`;
   ['title','version','summary','notes','effectiveDate','reviewDate'].forEach(k=>{$('f-'+k).oninput=e=>{draft[k]=e.target.value;markDirty();};});
-  ['category','status','dept'].forEach(k=>{const el=$('f-'+k);el.oninput=el.onchange=e=>{draft[k]=e.target.value;markDirty();};});
+  ['parent','category','status','dept'].forEach(k=>{const el=$('f-'+k);el.oninput=el.onchange=e=>{draft[k]=e.target.value;markDirty();};});
   $('f-tags').oninput=e=>{draft.tags=e.target.value.split(',').map(x=>x.trim()).filter(Boolean);markDirty();};
   renderInfoRows();renderStepRows();updatePreview();
 }
@@ -895,7 +910,7 @@ function docHtml(d){
   const info=(d.info||[]).filter(r=>r.k||r.v),steps=(d.steps||[]).filter(s=>s.title||s.text||s.img);
   return `<h1 class="doc-title" style="font-size:24px" ${d.title?'translate="no"':''}>${esc(d.title||'(Untitled)')}</h1>
     <div class="doc-meta">
-      <span class="tag" translate="no">${esc(d.category||'Other')}</span>${statusBadge(statusOf(d))}
+      ${d.parent?`<span class="tag" translate="no">${esc(d.parent)}</span>`:''}<span class="tag" translate="no">${esc(d.category||'Other')}</span>${statusBadge(statusOf(d))}
       ${d.version?`<span>Version ${esc(d.version)}</span>`:''}${d.dept?`<span translate="no">${esc(d.dept)}</span>`:''}
       ${d.effectiveDate?`<span>Effective ${fmtISO(d.effectiveDate)}</span>`:''}${d.reviewDate?`<span>Review ${fmtISO(d.reviewDate)}</span>`:''}
     </div>
@@ -908,7 +923,7 @@ function docHtml(d){
 function updatePreview(){const p=$('preview');if(p&&showPreview)p.innerHTML=`<div class="pv-label">Live preview</div>${docHtml(draft)}`;}
 
 function snapshot(d){
-  const keep=['title','category','dept','version','status','effectiveDate','reviewDate','tags','summary','info','steps','notes'];
+  const keep=['title','parent','category','dept','version','status','effectiveDate','reviewDate','tags','summary','info','steps','notes'];
   const o={};keep.forEach(k=>o[k]=clone(d[k]??''));
   // inline base64 images are large; keep only hosted URLs in history snapshots
   o.steps=(o.steps||[]).map(s=>({...s,img:/^https?:/i.test(s.img||'')?s.img:''}));
@@ -1036,7 +1051,7 @@ function renderSettings(){
   $('crumb').textContent='System Settings';$('wrap').className='wrap';
   const s=S();
   SET={siteName:s.siteName,siteSub:s.siteSub,logo:s.logo,accent:s.accent,reviewMonths:s.reviewMonths,hideDrafts:s.hideDrafts!==false,
-    categories:cats().map(n=>({orig:n,name:n})),departments:(s.departments||[]).map(n=>({orig:n,name:n})),
+    categories:cats().map(n=>({orig:n,name:n})),parents:parents().map(n=>({orig:n,name:n})),departments:(s.departments||[]).map(n=>({orig:n,name:n})),
     infoTemplate:(s.infoTemplate||[]).map(n=>({orig:null,name:n}))};
   $('wrap').innerHTML=`
     <div class="pagehead"><div><h2>System Settings</h2><div class="sub">Applies to everyone using the Library and the Studio.</div></div>
@@ -1056,6 +1071,7 @@ function renderSettings(){
       <div class="field" style="margin-bottom:0"><label>Accent colour</label>
         <div class="swatches" id="swatches"></div></div>
     </div>
+    <div class="panel"><h3>Parent sections</h3><p class="hint">Groups shown in the Procedure Library list. Renaming a section also updates every procedure in it.</p><div id="le-parents"></div></div>
     <div class="panel"><h3>Categories</h3><p class="hint">Renaming a category also updates every procedure that uses it.</p><div id="le-categories"></div></div>
     <div class="panel"><h3>Departments</h3><p class="hint">Used for procedures and user profiles. Leave empty to allow free text.</p><div id="le-departments"></div></div>
     <div class="panel"><h3>Procedure template & policy</h3><p class="hint">Default information rows for new procedures, review cycle, and visibility.</p>
@@ -1074,6 +1090,7 @@ function renderSettings(){
   $('s-hideDrafts').onchange=e=>SET.hideDrafts=e.target.checked;
   renderSwatches();
   listEditor('categories',d=>DB.sops.filter(x=>x.category===d).length);
+  listEditor('parents',d=>DB.sops.filter(x=>x.parent===d).length);
   listEditor('departments',d=>DB.sops.filter(x=>x.dept===d).length+DB.users.filter(x=>x.dept===d).length);
   listEditor('infoTemplate',null);
 }
@@ -1110,18 +1127,20 @@ function leAct(key,act,i){
 }
 async function saveSettings(){
   const tidy=a=>{const seen=new Set();return a.map(r=>({...r,name:r.name.trim()})).filter(r=>r.name&&!seen.has(r.name.toLowerCase())&&seen.add(r.name.toLowerCase()));};
+  const P=tidy(SET.parents),renP=P.filter(r=>r.orig&&r.orig!==r.name);
   const C=tidy(SET.categories),D=tidy(SET.departments),T=tidy(SET.infoTemplate);
   if(!C.length){toast('Keep at least one category');return;}
   if(!SET.siteName.trim()){toast('Site name is required');return;}
   const renC=C.filter(r=>r.orig&&r.orig!==r.name),renD=D.filter(r=>r.orig&&r.orig!==r.name);
   const settings={siteName:SET.siteName.trim(),siteSub:SET.siteSub.trim(),logo:SET.logo||'📚',accent:SET.accent,
-    categories:C.map(r=>r.name),departments:D.map(r=>r.name),infoTemplate:T.map(r=>r.name),reviewMonths:SET.reviewMonths,hideDrafts:SET.hideDrafts};
+    categories:C.map(r=>r.name),parents:P.map(r=>r.name),departments:D.map(r=>r.name),infoTemplate:T.map(r=>r.name),reviewMonths:SET.reviewMonths,hideDrafts:SET.hideDrafts};
   const ok=await commit(db=>{
     db.settings=Object.assign({},db.settings||{},settings);
     renC.forEach(r=>db.sops.forEach(s=>{if(s.category===r.orig)s.category=r.name;}));
+    renP.forEach(r=>db.sops.forEach(s=>{if(s.parent===r.orig)s.parent=r.name;}));
     renD.forEach(r=>{db.sops.forEach(s=>{if(s.dept===r.orig)s.dept=r.name;});db.users.forEach(u=>{if(u.dept===r.orig)u.dept=r.name;});});
   });
-  if(ok){applyTheme();toast('Settings saved'+(renC.length+renD.length?' — renamed values updated':''));renderApp();}
+  if(ok){applyTheme();toast('Settings saved'+(renC.length+renD.length+renP.length?' — renamed values updated':''));renderApp();}
 }
 function exportJson(){
   const data={exportedAt:new Date().toISOString(),settings:DB.settings,sops:DB.sops,

@@ -152,6 +152,21 @@
     .info-grid{grid-template-columns:120px 1fr}
   }
   .menu-toggle{display:none}
+  .lgrp{background:#fff;border:1px solid var(--line);border-radius:6px;margin-bottom:14px;overflow:hidden}
+  .lgrp-h{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:#faf8f2;padding:12px 18px;border-bottom:1px solid var(--line);font-size:14px;font-weight:700;color:var(--ink-strong)}
+  .lgrp.closed .lgrp-h{border-bottom:0}
+  .lgrp-h .car{display:inline-block;width:14px;color:var(--muted);transition:transform .15s}
+  .lgrp.closed .car{transform:rotate(-90deg)}
+  .lgrp.closed .lrow{display:none}
+  .lgrp-h .cnt{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--muted);background:#efeae0;padding:1px 9px;border-radius:10px}
+  .lrow{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line-soft);cursor:pointer}
+  .lrow:last-child{border-bottom:0}
+  .lrow:hover{background:#faf8f2}
+  .lrow .no{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .lrow .lt{font-weight:600;color:var(--ink-strong);font-size:14.5px;line-height:1.35}
+  .lrow .ls{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .lrow .lm{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);white-space:nowrap}
+  @media(max-width:760px){.lrow{grid-template-columns:22px minmax(0,1fr)}.lrow .lm{grid-column:2}}
   .langsw{display:inline-flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:#fff;margin-right:6px}
   .langsw button{background:none;font-size:11.5px;font-weight:700;letter-spacing:.5px;padding:5px 11px;color:var(--muted)}
   .langsw button.on{background:var(--accent);color:#fff}
@@ -175,6 +190,7 @@
    text nodes, placeholders, titles, toasts and dialogs to Vietnamese.
    Procedure content is never translated (marked translate="no").           */
 const I18N_VI={
+"Parent section":"Mục cha","Parent sections":"Mục cha","All parent sections":"Tất cả mục cha","Unassigned":"Chưa phân mục","Groups shown in the Procedure Library list. Renaming a section also updates every procedure in it.":"Các nhóm hiển thị trong danh sách Thư viện quy trình. Đổi tên mục cha sẽ cập nhật luôn các quy trình thuộc mục đó.",
 "(Untitled)":"(Chưa có tiêu đề)","(you)":"(bạn)","(no note)":"(không có ghi chú)",
 "Accent colour":"Màu chủ đạo","Actions":"Thao tác","Add User":"Thêm người dùng","Administrator":"Quản trị viên",
 "Administrator (all permissions)":"Quản trị viên (toàn quyền)","Editor":"Biên tập viên","Viewer":"Người xem",
@@ -424,8 +440,10 @@ function imgSrc(v){return v||'';}
 function modalOpen(){return $('overlay').classList.contains('show');}
 
 /* ---- settings managed in studio.html (System Settings) ---- */
+const DEFAULT_PARENTS=['Inventory','Purchasing','Shop Floor Control','Quality System','Estimating / BOM'];
 const STATUS_LABEL={draft:'Draft',review:'In Review',approved:'Approved',obsolete:'Obsolete'};
 function SET(){return DB.settings||{};}
+function getParents(){const p=SET().parents;return Array.isArray(p)?p:DEFAULT_PARENTS;}
 function getCats(){const c=SET().categories;return (c&&c.length)?c:CATEGORIES;}
 function siteName(){return SET().siteName||'SOP Library';}
 function isImgUrl(v){return /^(https?:|data:image\/)/i.test(String(v||''));}
@@ -709,7 +727,7 @@ function filteredSops(){
   return visibleSops().slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).filter(d=>{
     if(activeCat&&d.category!==activeCat)return false;
     if(!q)return true;
-    return [d.title,d.summary,d.category,d.dept,(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q);
+    return [d.title,d.summary,d.category,d.dept,d.parent,(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q);
   });
 }
 function renderLibrary(){
@@ -731,11 +749,36 @@ function renderLibrary(){
         ${cats.map(c=>`<span translate="no" class="chip ${activeCat===c?'on':''}" onclick="setCat('${esc(c)}')">${esc(c)}</span>`).join('')}
       </div>
     </div>
-    ${items.length?`<div class="grid">${items.map(cardHtml).join('')}</div>`
+    ${items.length?groupedListHtml(items)
       :`<div class="empty"><div class="ico">📭</div><p>${DB.sops.length?'No procedures match your filter.':'No procedures yet.'}</p>${can('create')&&!DB.sops.length?'<button class="btn btn-primary" onclick="newSop()" style="margin-top:10px">Create your first procedure</button>':''}</div>`}
   `;
   const s=$('search');
   s.oninput=e=>{searchQ=e.target.value;const pos=e.target.selectionStart;renderLibrary();const ns=$('search');ns.focus();ns.setSelectionRange(pos,pos);};
+}
+/* ---- list view grouped by parent section (Mục cha) ---- */
+let _closed=(()=>{try{return JSON.parse(localStorage.getItem('sop_closed_groups')||'{}');}catch(e){return {};}})();
+function groupedListHtml(items){
+  const order=getParents(),groups=new Map();
+  order.forEach(p=>groups.set(p,[]));
+  items.forEach(d=>{const k=(d.parent||'').trim();if(!groups.has(k))groups.set(k,[]);groups.get(k).push(d);});
+  if(groups.has('')){const u=groups.get('');groups.delete('');groups.set('',u);}   // unassigned last
+  const byTitle=(a,b)=>String(a.title||'').localeCompare(String(b.title||''),'vi');
+  return [...groups.entries()].filter(([k,v])=>v.length).map(([k,v])=>{
+    const closed=!searchQ&&_closed[k||'_none'];
+    return `<div class="lgrp ${closed?'closed':''}">
+      <button class="lgrp-h" onclick="toggleGroup(this,'${esc(k||'_none')}')"><span class="car">▾</span>${k?`<span translate="no">${esc(k)}</span>`:'<span>Unassigned</span>'}<span class="cnt">${v.length}</span></button>
+      ${v.sort(byTitle).map((d,i)=>listRowHtml(d,i)).join('')}</div>`;}).join('');
+}
+function listRowHtml(d,i){
+  return `<div class="lrow" onclick="openSop('${d.id}')">
+    <div class="no">${i+1}.</div>
+    <div style="min-width:0"><div class="lt" translate="no">${esc(d.title||'(Untitled)')}</div>${d.summary?`<div class="ls" translate="no">${esc(d.summary)}</div>`:''}</div>
+    <div class="lm">${statusOf(d)!=='approved'?statusBadge(d):''}${d.version?`<span>v${esc(d.version)}</span>`:''}<span>${d.updatedAt?fmtDate(d.updatedAt):''}</span></div>
+  </div>`;
+}
+function toggleGroup(btn,k){
+  const g=btn.parentElement;g.classList.toggle('closed');_closed[k]=g.classList.contains('closed');
+  try{localStorage.setItem('sop_closed_groups',JSON.stringify(_closed));}catch(e){}
 }
 function cardHtml(d){
   const owner=d.ownerName?esc(d.ownerName):'';
@@ -752,7 +795,7 @@ function backToList(){activeId=null;mode='view';draft=null;renderLibrary();}
 function renderViewer(){
   const d=findSop(activeId);
   if(!d){backToList();return;}
-  $('crumb').textContent=(d.category||'Procedure')+' › '+(d.title||'');$('crumb').setAttribute('translate','no');
+  $('crumb').textContent=(d.parent||d.category||'Procedure')+' › '+(d.title||'');$('crumb').setAttribute('translate','no');
   const info=(d.info||[]).filter(r=>r.k||r.v);
   const steps=d.steps||[];
   $('wrap').innerHTML=`
@@ -762,6 +805,7 @@ function renderViewer(){
         <h1 class="doc-title" translate="no">${esc(d.title)}</h1>
         <div class="doc-meta">
           <span class="tag" translate="no">${esc(d.category||'Other')}</span>
+          ${d.parent?`<span class="tag" translate="no">${esc(d.parent)}</span>`:''}
           ${statusBadge(d)}
           ${d.version?`<span>Version ${esc(d.version)}</span>`:''}
           ${d.dept?`<span translate="no">${esc(d.dept)}</span>`:''}
@@ -808,6 +852,7 @@ function renderEditor(){
       <div class="field"><label>Category</label><select id="f-cat">${[...new Set([...getCats(),draft.category].filter(Boolean))].map(c=>`<option ${c===draft.category?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
       <div class="field"><label>Version</label><input id="f-ver" value="${esc(draft.version)}"></div>
     </div>
+    <div class="field"><label>Parent section</label><select id="f-parent"><option value="">— None —</option>${[...new Set([...getParents(),draft.parent].filter(Boolean))].map(c=>`<option ${c===draft.parent?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
     <div class="field"><label>Overview / Description</label><textarea id="f-sum" rows="3" placeholder="Short description of the procedure's purpose">${esc(draft.summary)}</textarea></div>
     <div class="field"><label>Information table (Purpose, Scope, Owner…)</label><div id="infoWrap"></div><button class="btn-sm" onclick="addInfo()">＋ Add row</button></div>
     <div class="field"><label>Procedure Steps</label><div id="stepsWrap"></div><button class="btn-sm" onclick="addStep()">＋ Add step</button></div>
@@ -815,6 +860,7 @@ function renderEditor(){
   `;
   bindField('f-title','title');bindField('f-ver','version');bindField('f-sum','summary');bindField('f-notes','notes');
   $('f-cat').onchange=e=>draft.category=e.target.value;
+  $('f-parent').onchange=e=>draft.parent=e.target.value;
   renderInfoRows();renderStepRows();
 }
 function bindField(id,key){$(id).oninput=e=>draft[key]=e.target.value;}
@@ -974,7 +1020,7 @@ async function doChangePw(){
   closeModal(); await saveAll(); toast('Password changed');
 }
 
-window.doLogin=doLogin;window.logout=logout;window.go=go;window.setCat=setCat;window.openSop=openSop;
+window.toggleGroup=toggleGroup;window.doLogin=doLogin;window.logout=logout;window.go=go;window.setCat=setCat;window.openSop=openSop;
 window.backToList=backToList;window.newSop=newSop;window.editSop=editSop;window.cancelEdit=cancelEdit;
 window.delSop=delSop;window.saveDraft=saveDraft;window.addInfo=addInfo;window.rmInfo=rmInfo;
 window.addStep=addStep;window.rmStep=rmStep;window.userModal=userModal;window.saveUser=saveUser;
